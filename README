@@ -1,0 +1,64 @@
+###########################################################################################################
+### Frogesport                                                                                          ###
+###########################################################################################################
+###
+#
+#    Copyright 2011-2012 Zmegolaz <zmegolaz@kaizoku.se>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+Command - Description - Requirements
+!startquiz - Start the bot - Admin
+!stopquiz - Stop the bot - Admin
+!clear - Clear all pending actions, should never have to be used - Admin
+!pause - Pause the bot, without clearing the questions IDs - Admin
+!continue - If the bot has been paused, start it again - Admin
+!reward - Give points to a user - Admin
+!punish - Take points from a user - Admin
+!answer - Get the answer for the last question - OP
+!spell <spell> [nick|id] - Cast a spell - Anyone of level 5 or higher
+!startmess - Start sending a message every x seconds - Admin
+!stats [nick] - Check the stats for someone, it [nick] is omitted, you will get your own stats - Anyone
+!stopmess - Stop sending a message every x seconds - Admin
+!recommend - Get help about how to recommend questions - Anyone
+!report <id> <comment> - Report a question - Anyone
+!hof - Hall of fame, the 10 users with the highest total points - Anyone
+!top10 - Top 10 users of this season - Anyone
+!compare - Compare any number of users to eachother, ordered by season points - Anyone
+!comparetot - Compare any number of users to eachother, ordered by total points - Anyone
+!version - Show the bot version - Anyone
+
+[PM]checkq <id> [perm] - Check any question and it's answers - Admin
+[PM]checku <nick> - Check a user, an alias to !stats - Admin
+[PM]addq <category>|<question>|<answer>\[|answer\]... - Add a question - Admin
+[PM]delq <id> [perm] - Delete a question - Admin
+[PM]modq <id> [perm] <category|question|answer> <value> - Modify a part of a question - Admin
+[PM]modu <nick|season|total|time|inarow|mana|class|last|customclass|transfer|help> <nick|subcommand> [new value] - Modify any part of a user - Admin
+[PM]newseason [help] - Start a new season - Admin
+[PM]recommend <category>|<question>|<answer>[|<answer>] - Recommend a question - Anyone
+[PM]updateclasses - Correct all users' classes - Admin
+
+TODO:
+Documentation
+Logg all user/question modifications
+Happy hour
+Config sanity check
+Move all text to a separate file for easier translations
+
+Best time per question
+Number of times a question is asked, and number of times it was answered correctly
+Characters per second
+Multiple levels of clues
+Different points for different questions

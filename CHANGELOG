@@ -1,0 +1,95 @@
+Version 1.2.0 - 2012-11-11
+	Changed name to Frogesport. "Frogesport" is pronounced similar to the swedish word "frågesport" which means "quiz", and it's a frog themed e-sport. Funny, right?
+Version 1.1.27 - 2012-02-18
+	Features
+ * !pause was introduced.
+ * !startmess and !stopmess can be used to start/stop sending a message every half hour.
+Version 1.1.26 - 2011-12-02
+	Bug fixes
+ * The spell prevanswer could be used to get the answer to the current question too.
+Version 1.1.25 - 2011-10-07
+	Features
+ * The PM command modu transfer is now added, which transfers all stats from one user to another.
+Version 1.1.24 - 2011-10-06
+	Changes
+ * The start and stop commands are now !startquiz and !stopquiz
+ * All output from spells and similar commands are displayed in the channel the command was written, not the channel the bot is running in.
+ * Readme file added.
+Version 1.1.23 - 2011-10-04
+	Changes
+ * The config is now in a separate file
+Version 1.1.22 - 2011-09-26
+	Features
+ * You can now put custom title names on users. This doesn't affect spells or mana, just the displayed name.
+	Changes
+ * The report show command now sorts reports by the question ID to better group reports.
+Version 1.1.21 - 2011-09-21
+	Features
+ * The command !ping has now been added.
+Version 1.1.20 - 2011-09-08
+	Bug fixes
+ * If you stopped and the directly tried to start the bot again without rehashing, it wouldn't work since the MySQL connection was closed.
+	Changes
+ * The number of clue letters are now rounded up instead of down
+Version 1.1.19 - 2011-09-04
+	Bug fixes
+ * If the correct answer contained \, [, ], ? or *, the escape character was displayed when someone answered correctly.
+Version 1.1.18 - 2011-08-21
+	Features
+ * Users can now recommend questions with the command recommend, which can be viewed, accepted and deleted by an admin with the command recs.
+	Bug fixes
+ * The !spell steal confirmation message in PM had the wrong text color.
+Version 1.1.17 - 2011-08-06
+	Features
+ * "!continue" added, to be used in case the bot stopped for some reason.
+ * "checku" added, admins doesn't have to use "!stats" to get info about a user.
+ * The category and the question is now split in "reports show".
+ * Some MySQL optimizations.
+ * Various small fixes to "modu nick"
+ Bug fixes
+ * If you tried to delete a report ID which didn't exist, it would still say it was deleted.
+Version 1.1.16 - 2011-08-05
+	Features
+ * "!reward" and "!punish" added.
+Version 1.1.15 - 2011-08-05
+	Bug fixes
+ * When you used "!status" on a nick which didn't exist, the error message was a bit wrong.
+ * Moved around some procedures, some were called before they were defined if the bot was started or restarted.
+ * If the wrong running_chan was configured, an error message was displayed but the bot started anyway.
+ * The check if running_chan was correct was case sensitive, the IRC protocol is not.
+	Features
+ * Dates was added to the changelog
+ * On every rehash, startup or the "updateclass" command, all users class is updated to the correct one.
+Version 1.1.14
+	Features
+ * You can now add comments to each class, which is displayed when a user is promoted.
+ * Added the "!version" command.
+ * Added "!check" which is an alias to "checkq".
+Version 1.1.13
+	Features
+ * Added multiple authentication methods.
+ * You can now report questions even if the bot isn't running.
+ * Misc optimizations.
+Version 1.1.12
+	Features
+ * Made the spell "answer" tell the answer of the current question.
+ * Added the spell "prevanswer" which gives the answer to a previous question.
+Version 1.1.11
+	Bug fixes
+ * Fixed better åäö support in switches.
+	Features
+ * "reports show" now shows the total number of reports.
+Version 1.1.10
+  Bug fixes
+ * You could use wildcards such as *, ? or [] to always match the answer.
+ * "!spell" answer failed because of a misspelled variable name.
+ * "modq" didn't give any help output at all, updated some other help sections too.
+	Features
+ * Changelog added.
+ * Added the "modu" PM command to modify users.
+ * Made the "!stats" command output the name of the class too.
+ * Answers with only four numbers (years, mostly) now give clues like 1_4_.
+ * Super admins entered in the config may start new seasons.
+
+Version 1.0
+ * First release, has most of the user functions and some of the admin functions. Enough to run a trivia channel.
