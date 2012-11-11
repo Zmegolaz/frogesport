@@ -30,7 +30,7 @@ Command - Description - Requirements
 !answer - Get the answer for the last question - OP
 !spell <spell> [nick|id] - Cast a spell - Anyone of level 5 or higher
 !startmess - Start sending a message every x seconds - Admin
-!stats [nick] - Check the stats for someone, it [nick] is omitted, you will get your own stats - Anyone
+!stats [nick] - Check the stats for someone, if [nick] is omitted, you will get your own stats - Anyone
 !stopmess - Stop sending a message every x seconds - Admin
 !recommend - Get help about how to recommend questions - Anyone
 !report <id> <comment> - Report a question - Anyone
@@ -51,14 +51,15 @@ Command - Description - Requirements
 [PM]updateclasses - Correct all users' classes - Admin
 
 TODO:
-Documentation
-Logg all user/question modifications
-Happy hour
-Config sanity check
-Move all text to a separate file for easier translations
+Translate everything to English.
+Documentation.
+Logg all user/question modifications.
+Happy hour.
+Config sanity check.
+Move all text to a separate file for easier translations.
 
-Best time per question
-Number of times a question is asked, and number of times it was answered correctly
-Characters per second
-Multiple levels of clues
-Different points for different questions
+Best time per question.
+Number of times a question is asked, and number of times it was answered correctly.
+Characters per second.
+Multiple levels of clues.
+Different points for different questions.

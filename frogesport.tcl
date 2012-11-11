@@ -23,7 +23,7 @@
 ############################################################
 
 
-set ::trivia_version "1.1.27"
+set ::frogesport_version "1.2.0"
 
 # Include the config file
 if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -1677,7 +1677,7 @@ proc frogesport:randomstring {length {chars "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi
 }
 
 proc frogesport:version { nick host hand chan arg } {
-	putnow "PRIVMSG $nick :\003${::color_text},${::color_background}Frogesport version $::trivia_version"
+	putnow "PRIVMSG $nick :\003${::color_text},${::color_background}Frogesport version $::frogesport_version"
 }
 
-putlog "Frogesport version $::trivia_version Loaded"
+putlog "Frogesport version $::frogesport_version Loaded"
