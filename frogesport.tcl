@@ -23,7 +23,7 @@
 ############################################################
 
 
-set ::frogesport_version "1.2.0"
+set ::frogesport_version "1.2.1"
 
 # Include the config file
 if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -42,7 +42,9 @@ bind pub * "!pause" frogesport:clear
 bind pub * "!continue" frogesport:continue
 bind pub * "!punish" frogesport:punish
 bind pub * "!reward" frogesport:reward
+bind pub * "!startmess" frogesport:startmess
 bind pub * "!startquiz" frogesport:startquiz
+bind pub * "!stopmess" frogesport:stopmess
 bind pub * "!stopquiz" frogesport:stopquiz
 # Admin commands from PM
 bind msg * "addq" frogesport:msgaddq
@@ -81,28 +83,6 @@ bind pub * "!version" frogesport:version
 # User commands from PM
 bind msg * "recommend" frogesport:msgrecommendq
 
-# Send a message every half hour, maybe to tell people why the bot is stopped
-bind pub * "!startmess" frogesport:startmess
-bind pub * "!stopmess" frogesport:stopmess
-
-proc frogesport:startmess { nick host hand chan arg } {
-	if {![frogesport:checkauth $nick]} {
-		return
-	}
-	frogesport:sendmess
-}
-
-proc frogesport:sendmess {} {
-	putserv "PRIVMSG $::running_chan :Grodan är idag stoppad för att protestera mot SOPA och PIPA. | http://en.wikipedia.org/wiki/Stop_Online_Piracy_Act | http://en.wikipedia.org/wiki/PROTECT_IP_Act"
-	set ::messageId [after 1800000 frogesport:sendmess]
-}
-
-proc frogesport:stopmess { nick host hand chan arg } {
-	if {![frogesport:checkauth $nick]} {
-		return
-	}
-	after cancel $::messageId
-}
 
 # We need the mysqltcl package
 package require mysqltcl
@@ -114,17 +94,23 @@ if {[info exist ::mysql_quiz] && [::mysql::state $::mysql_quiz -numeric] > 2} {
 	set ::mysql_quiz [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
 	# We need to use latin1 to be able to handle åäö
 	::mysql::exec $::mysql_quiz "SET NAMES 'latin1'"
+
+# Run some configuration checks
+if {$::s_close_behind > [expr $::s_question_time-1]} {
+	set ::close_behind [expr $::s_question_time-1]
+}
 	
 # All times are supposed to be in ms
 set ::question_time [expr $::s_question_time*1000]
 set ::clue_time [expr $::s_clue_time*1000]
 set ::time_answer [expr $::s_time_answer*1000]
 set ::pinginterval [expr $::s_pinginterval*1000]
+set ::close_behind [expr $::s_close_behind*1000]
 
 # Fix percent if someone set it with a % sign
 set ::clue_percent [string trim $::clue_percent "%"]
 
-# Set some variables
+# Set and fix some variables
 set ::season_code ""
 
 # Load ::admins and ::prizes
@@ -211,6 +197,26 @@ proc frogesport:msgupdateclasses { nick host hand arg } {
 # Update all users classes on rehash or startup. We have to put it here, since the procedure have to be defined before we can call it
 frogesport:msgupdateclasses "" "" "" ""
 
+# Send a message every half hour, maybe to tell people why the bot is stopped
+proc frogesport:startmess { nick host hand chan arg } {
+	if {![frogesport:checkauth $nick]} {
+		return
+	}
+	frogesport:sendmess
+}
+
+proc frogesport:sendmess {} {
+	putserv "PRIVMSG $::running_chan :$::periodic_message"
+	set ::messageId [after [expr $::s_periodic_message*60000] frogesport:sendmess]
+}
+
+proc frogesport:stopmess { nick host hand chan arg } {
+	if {![frogesport:checkauth $nick]} {
+		return
+	}
+	after cancel $::messageId
+}
+
 # Start the bot
 proc frogesport:startquiz { nick host hand chan arg } {
 	# Connect to the mysql database if it isn't already done
@@ -240,6 +246,8 @@ proc frogesport:startquiz { nick host hand chan arg } {
 	set ::currentcorrect ""
 	# Clear all the temporary IDs in the database
 	::mysql::exec $::mysql_quiz "UPDATE questions SET ques_tempid=NULL"
+	# binding for detecting answers (matches everything)
+	bind pubm * {*} frogesport:checkanswer
 	# Ask the first question
 	frogesport:askquestion
 }
@@ -248,8 +256,12 @@ proc frogesport:startquiz { nick host hand chan arg } {
 proc frogesport:askquestion { } {
 	# Set the current temporary ID
 	set ::cur_temp_id [expr $::cur_temp_id+1]
-	# Get the question, we use RAND() and subquerys to make MySQL randomize one for us
-	set query1 [::mysql::query $::mysql_quiz "SELECT * FROM questions WHERE questions.qid = (SELECT questions_map.qm_qid FROM questions_map, (SELECT FLOOR(1+MAX(questions_map.qmid) * RAND()) AS maprand FROM questions_map) AS maptable WHERE questions_map.qmid = maptable.maprand)"]
+	# Get the number of questions we have and multiply it by a random number to get a random offset
+	set query1 [::mysql::query $::mysql_quiz "SELECT floor(RAND() * COUNT(*)) from questions"]
+	set offset [lindex [::mysql::fetch $query1] 0]
+	::mysql::endquery $query1
+	# Get the question, use the previous offset to get a random one
+	set query1 [::mysql::query $::mysql_quiz "SELECT qid, ques_category, ques_question FROM questions LIMIT [::mysql::escape $::mysql_quiz [lindex $offset 0]],1"]
 	set question [::mysql::fetch $query1]
 	::mysql::endquery $query1
 	# Set the temporary ID on the question in the database
@@ -262,10 +274,10 @@ proc frogesport:askquestion { } {
 		lappend ::answers [lindex $row 0]
 	}
 	::mysql::endquery $query1
-	# binding for detecting answers (matches everything)
-	bind pubm * {*} frogesport:checkanswer
 	# Ask the question
 	putnow "PRIVMSG $::running_chan :\003${::color_text},${::color_background}$::cur_temp_id: [lindex $question 1]: [lindex $question 2]"
+	# The current question is not answered
+	set ::answered 0
 	# Set current time, to be able to measure the time it took for the user to answer
 	set ::question_start_time [clock clicks -milliseconds]
 	# Start the clue timer
@@ -302,8 +314,6 @@ proc frogesport:giveclue { } {
 }
 
 proc frogesport:nocorrect { } {
-	# Unbind the answer checker
-	catch { unbind pubm * {*} frogesport:checkanswer }
 	# Should the bot tell all the correct answers?
 	set correctanswer ""
 	if {$::give_answer == "1"} {
@@ -328,102 +338,141 @@ proc frogesport:nocorrect { } {
 proc frogesport:checkanswer { nick host hand chan arg } {
 	# If we're not running but the bind for some reason is still here, just ignore it. This should never happen
 	if {!$::is_running} {
+		catch { unbind pubm * {*} frogesport:checkanswer }
 		return
 	}
 	set origarg $arg
 	# Replace *, ?, [ and ] with the escaped characters
 	set arg [string map { "*" "\\\*" "?" "\\\?" "\[" "\\\[" "\]" "\\\]" } $arg]
+	# Check if the answer was correct
 	if {[lsearch -nocase $::answers $arg] >= 0} {
-		# Empty the answers, to make sure we don't get two correct ones
-		set ::answers ""
-		# How long did it take for the user to answer?
-		set answertime [expr double([clock clicks -milliseconds]-$::question_start_time)/1000]
-		# Unbind the answer checker
-		catch { unbind pubm * {*} frogesport:checkanswer }
-		# Stop the pending clue and that no answer was given
-		after cancel $::c_after_id
-		after cancel $::q_after_id
-		
-		# Get new user information
-		set query1 [::mysql::query $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1"]
-		set curuser [::mysql::fetch $query1]
-		::mysql::endquery $query1
-		# Is this a new user?
-		if {$curuser == ""} {
-			# We have a new user!
-			set ::totalusers [expr $::totalusers+1]
-			::mysql::exec $::mysql_quiz "INSERT INTO users (user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive)\
-				VALUES ('[::mysql::escape $::mysql_quiz $nick]', 1, 1, '[::mysql::escape $::mysql_quiz $answertime]', 1, 1, 1, [clock seconds])"
-			set ::currentcorrect [list $nick "1" ]
-			set rankmess ""
+		# Check wether or not this is the first correct answer
+		if {$::answered} {
+			# Remember the nick if the close behind feature is enabled, we're collecting nicks, it's this users first close behind answer and the user wasn't the first answerer
+			if {$::s_close_behind && $::close_behind_collecting && [lsearch $::correct_close_nick $nick] < 0 && $nick != $::last_correct_nick} {
+				if {![info exists ::correct_close]} {
+					set ::correct_close ""
+				}
+				lappend ::correct_close_nick $nick
+				lappend ::correct_close_time [expr double([clock clicks -milliseconds]-$::close_behind_time)/1000]
+				#set ::correct_close($nick) [expr double([clock clicks -milliseconds]-$::close_behind_time)/1000]
+			}
 		} else {
-			# The user's been here before, check for a streak
-			if {[string match $nick [lindex $::currentcorrect 0]]} {
-				# The user is on a streak, add the user to the current streakmeater
-				set ::currentcorrect [list $nick [expr [lindex $::currentcorrect 1]+1]]
+			# Remember that we have got a correct answer
+			set ::answered 1
+			# How long did it take for the user to answer?
+			set answertime [expr double([clock clicks -milliseconds]-$::question_start_time)/1000]
+			# Stop the pending clue and that no answer was given procedures
+			after cancel $::c_after_id
+			after cancel $::q_after_id
+			# Start the close behind timer if it's enabled.
+			if {$::s_close_behind} {
+				set ::close_behind_time [clock clicks -milliseconds]
+				set ::close_behind_id [after [expr $::close_behind] frogesport:closebehind]
+				# Remember that we are collecting nicks
+				set ::close_behind_collecting 1
+				# Remember who answered correctly
+				set ::last_correct_nick $nick
+				set ::correct_close_nick ""
+			}
+			
+			# Get new user information
+			set query1 [::mysql::query $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1"]
+			set curuser [::mysql::fetch $query1]
+			::mysql::endquery $query1
+			# Is this a new user?
+			if {$curuser == ""} {
+				# We have a new user!
+				set ::totalusers [expr $::totalusers+1]
+				::mysql::exec $::mysql_quiz "INSERT INTO users (user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive)\
+					VALUES ('[::mysql::escape $::mysql_quiz $nick]', 1, 1, '[::mysql::escape $::mysql_quiz $answertime]', 1, 1, 1, [clock seconds])"
+				set ::currentcorrect [list $nick "1" ]
+				set rankmess ""
 			} else {
-				# This use is not on a streak, reset the variable
-				set ::currentcorrect [list $nick "1"]
-			}
-			# Check if we should update the users fastest time
-			set updatetime ""
-			if { $answertime < [lindex $curuser 4] } {
-				set updatetime ", user_time='$answertime'"
-			}
-			# Check if we should update the users longest streak
-			set updatestreak ""
-			if { [lindex $::currentcorrect 1] > [lindex $curuser 5] } {
-				set updatestreak ", user_inarow='[lindex $::currentcorrect 1]'"
-			}
-			# Check if we should update the class
-			set updateclass ""
-			set updatemana ""
-			if {[lsearch -index 1 $::classes [expr [lindex $curuser 3]+1]] >= 0 && [lindex $curuser 7] != "0"} {
-				set query1 [::mysql::query $::mysql_quiz "SELECT * FROM classes WHERE clas_points=[expr [lindex $curuser 3]+1]"]
-				set newclass [::mysql::fetch $query1]
+				# The user's been here before, check for a streak
+				if {[string match $nick [lindex $::currentcorrect 0]]} {
+					# The user is on a streak, add the user to the current streakmeater
+					set ::currentcorrect [list $nick [expr [lindex $::currentcorrect 1]+1]]
+				} else {
+					# This use is not on a streak, reset the variable
+					set ::currentcorrect [list $nick "1"]
+				}
+				# Check if we should update the users fastest time
+				set updatetime ""
+				if { $answertime < [lindex $curuser 4] } {
+					set updatetime ", user_time='$answertime'"
+				}
+				# Check if we should update the users longest streak
+				set updatestreak ""
+				if { [lindex $::currentcorrect 1] > [lindex $curuser 5] } {
+					set updatestreak ", user_inarow='[lindex $::currentcorrect 1]'"
+				}
+				# Check if we should update the class
+				set updateclass ""
+				set updatemana ""
+				if {[lsearch -index 1 $::classes [expr [lindex $curuser 3]+1]] >= 0 && [lindex $curuser 7] != "0"} {
+					set query1 [::mysql::query $::mysql_quiz "SELECT * FROM classes WHERE clas_points=[expr [lindex $curuser 3]+1]"]
+					set newclass [::mysql::fetch $query1]
+					::mysql::endquery $query1
+					set updateclass ", user_class=[lindex $newclass 0]"
+					# We should also add mana, this isn't done in the next if statement because we still use the old class
+					set updatemana ", user_mana=user_mana+1"
+				}
+				# Check if we should add more mana
+				if {[lindex $curuser 6] < [lindex [lindex $::classes [lindex $curuser 7]] 3]} {
+					set updatemana ", user_mana=user_mana+1"
+				}
+				::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season+1, user_points_total=user_points_total+1, user_lastactive=[clock seconds]$updatetime$updatestreak$updateclass$updatemana WHERE uid=[lindex $curuser 0]"
+				set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>[expr [lindex $curuser 2]+1]"]
+				set rank [expr [lindex [::mysql::fetch $query1] 0]+1]
 				::mysql::endquery $query1
-				set updateclass ", user_class=[lindex $newclass 0]"
-				# We should also add mana, this isn't done in the next if statement because we still use the old class
-				set updatemana ", user_mana=user_mana+1"
+				set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season=[expr [lindex $curuser 2]+1]"]
+				set onelessrank [lindex [::mysql::fetch $query1] 0]
+				::mysql::endquery $query1
+				set rankmess " Rank: $rank av $::totalusers."
 			}
-			# Check if we should add more mana
-			if {[lindex $curuser 6] < [lindex [lindex $::classes [lindex $curuser 7]] 3]} {
-				set updatemana ", user_mana=user_mana+1"
+			set curclass ""
+			if {[info exists curuser] && $curuser != ""} {
+				set curclass " \[[lindex [lindex $::classes [lindex $curuser 7]] 2]\]"
 			}
-			::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season+1, user_points_total=user_points_total+1, user_lastactive=[clock seconds]$updatetime$updatestreak$updateclass$updatemana WHERE uid=[lindex $curuser 0]"
-			set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>[expr [lindex $curuser 2]+1]"]
-			set rank [expr [lindex [::mysql::fetch $query1] 0]+1]
-			::mysql::endquery $query1
-			set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season=[expr [lindex $curuser 2]+1]"]
-			set onelessrank [lindex [::mysql::fetch $query1] 0]
-			::mysql::endquery $query1
-			set rankmess " Rank: $rank av $::totalusers."
+			# Check if the user has a custom class
+			if {[lindex $curuser 9] != ""} {
+				set curclass " \[[lindex $curuser 9]\]"
+			}
+			# Tell everyone the time is up
+			putnow "PRIVMSG $::running_chan :\003${::color_text},${::color_background}Vinnare: \003${::color_nick}$nick\003${::color_class}$curclass \003${::color_text}Svar: \003${::color_answer}$origarg \003${::color_text}Tid: ${answertime}s. I rad: [lindex $::currentcorrect 1]. Nuvarande poäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
+			if {[info exists updateclass] && $updateclass != ""} {
+				putnow "PRIVMSG $::running_chan :\003${::color_nick},${::color_background}$nick\003${::color_text} har gått upp till level [lindex $newclass 0] och är nu rankad som [lindex $newclass 2]! [lindex $newclass 4]"
+			}
+			# If the user gained a rank, tell everyone
+			if {[info exists onelessrank] && $onelessrank > 1} {
+				putnow "PRIVMSG $::running_chan :\003${::color_nick},${::color_background}$nick \003${::color_text}har stigit i ranking: $rank av $::totalusers."
+			}
+			# If the user gained a prize, tell everyone
+			if {[set prize [lsearch -inline -all -index 1 $::prizes [lindex $::currentcorrect 1]]] != ""} {
+				# If there's multiple answers, choose one at random
+				set randprize [lindex [lindex $prize [expr int([llength $prize]*rand())]] 2]
+				putserv "PRIVMSG $::running_chan :\003${::color_nick},${::color_background}$nick \003${::color_text}har svarat rätt \003${::color_statsnumber}[lindex $::currentcorrect 1]\003${::color_text} gånger i rad och får $randprize som pris!"
+			}
+			# Start the timer for the next question
+			set ::nq_after_id [after $::question_time frogesport:askquestion]
 		}
-		set curclass ""
-		if {[info exists curuser] && $curuser != ""} {
-			set curclass " \[[lindex [lindex $::classes [lindex $curuser 7]] 2]\]"
+	}
+}
+
+# Tell the users how far behind they were
+proc frogesport:closebehind { } {
+	# We are no longer collecting nicks
+	set ::close_behind_collecting 0
+	# Check if there are any users who are close behind
+	if {[info exists ::correct_close]} {
+		set num_nicks [llength $::correct_close_nick]
+		for {set i 0} {$i<$num_nicks} {incr i} {
+			lappend output "\003${::color_nick},${::color_background}[lindex $::correct_close_nick $i] \003${::color_text}var \003${::color_statsnumber}[lindex $::correct_close_time $i]\003${::color_text} sekunder efter"
 		}
-		# Check if the user has a custom class
-		if {[lindex $curuser 9] != ""} {
-			set curclass " \[[lindex $curuser 9]\]"
-		}
-		# Tell everyone the time is up
-		putnow "PRIVMSG $::running_chan :\003${::color_text},${::color_background}Vinnare: \003${::color_nick}$nick\003${::color_class}$curclass \003${::color_text}Svar: \003${::color_answer}$origarg \003${::color_text}Tid: ${answertime}s. I rad: [lindex $::currentcorrect 1]. Nuvarande poäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
-		if {[info exists updateclass] && $updateclass != ""} {
-			putnow "PRIVMSG $::running_chan :\003${::color_nick},${::color_background}$nick\003${::color_text} har gått upp till level [lindex $newclass 0] och är nu rankad som [lindex $newclass 2]! [lindex $newclass 4]"
-		}
-		# If the user gained a rank, tell everyone
-		if {[info exists onelessrank] && $onelessrank > 1} {
-			putnow "PRIVMSG $::running_chan :\003${::color_nick},${::color_background}$nick \003${::color_text}har stigit i ranking: $rank av $::totalusers."
-		}
-		# If the user gained a prize, tell everyone
-		if {[set prize [lsearch -inline -all -index 1 $::prizes [lindex $::currentcorrect 1]]] != ""} {
-			# If there's multiple answers, choose one at random
-			set randprize [lindex [lindex $prize [expr int([llength $prize]*rand())]] 2]
-			putserv "PRIVMSG $::running_chan :\003${::color_nick},${::color_background}$nick \003${::color_text}har svarat rätt \003${::color_statsnumber}[lindex $::currentcorrect 1]\003${::color_text} gånger i rad och får $randprize som pris!"
-		}
-		# Start the timer for the next question
-		set ::nq_after_id [after $::question_time frogesport:askquestion]
+		putserv "PRIVMSG $::running_chan :[join $output ", "]."
+		unset ::correct_close_nick
+		unset ::correct_close_time
 	}
 }
 
@@ -1536,7 +1585,7 @@ proc frogesport:msghelp { nick host hand arg } {
 			addq <kategori>|<fråga>|<svar>\[|svar],\
 			checkq <id> \[perm\],\
 			delq <id> \[perm\],\
-			modq <kategori|fråga|svar> <nytt värde>,\
+			modq <id> \[perm\]  <kategori|fråga|svar> <nytt värde>,\
 			modu <nick|säsong|total|tid|irad|mana|klass|senast|hjälp> <nick|alternativ> \[nytt värde\],\
 			newseason help,\
 			rapporter <visa|radera> \[id\],\

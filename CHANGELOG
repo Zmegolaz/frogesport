@@ -1,3 +1,11 @@
+Version 1.2.1 - 2012-11-15
+	Features
+ * Added a "close answers" to show people how close they were to winning the question.
+	Changes
+ * Rewrote the randomization function to greatly simplify it and the database structure.
+ * Included the SQL table structure (yeah, should have done this earlier...)
+	Bug fixes
+ * Changed to correct syntax for modq in help.
 Version 1.2.0 - 2012-11-11
 	Changed name to Frogesport. "Frogesport" is pronounced similar to the swedish word "frågesport" which means "quiz", and it's a frog themed e-sport. Funny, right?
 Version 1.1.27 - 2012-02-18

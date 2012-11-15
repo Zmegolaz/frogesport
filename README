@@ -29,9 +29,9 @@ Command - Description - Requirements
 !punish - Take points from a user - Admin
 !answer - Get the answer for the last question - OP
 !spell <spell> [nick|id] - Cast a spell - Anyone of level 5 or higher
-!startmess - Start sending a message every x seconds - Admin
+!startmess - Start sending a message every x minutes - Admin
 !stats [nick] - Check the stats for someone, if [nick] is omitted, you will get your own stats - Anyone
-!stopmess - Stop sending a message every x seconds - Admin
+!stopmess - Stop sending a message every x minutes - Admin
 !recommend - Get help about how to recommend questions - Anyone
 !report <id> <comment> - Report a question - Anyone
 !hof - Hall of fame, the 10 users with the highest total points - Anyone

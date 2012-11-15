@@ -50,6 +50,9 @@ set ::s_question_time "10"
 set ::s_clue_time "15"
 # Time users have to answer the question, in seconds
 set ::s_time_answer "30"
+# The bot may tell people how long time behind the winner they were, for how long should it collect nicks?
+# Enter in seconds, and has to be lower than ::s_question_time. Set to 0 to disable this feature.
+set ::close_behind "5"
 
 # How many percent of each word in the answer the clue should display, number of letters are rounded up
 set ::clue_percent "30"
@@ -80,6 +83,11 @@ set ::recommend_show "7"
 
 # How many seconds has to pass between each ping command?
 set ::s_pinginterval "10"
+
+# The bot can send periodic messages to the channel, for example to tell people why it is down. What should that message be?
+set ::periodic_message "Frogesport is down because of database maintenance."
+# How often? In minutes.
+set ::s_periodic_message "15"
 
 # Text color:
 set ::color_text "00"
