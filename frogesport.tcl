@@ -23,7 +23,7 @@
 ############################################################
 
 
-set ::frogesport_version "1.2.2"
+set ::frogesport_version "1.2.2.1"
 
 # Include the config file
 if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -207,8 +207,6 @@ proc frogesport:startquiz { nick host hand chan arg } {
 	set ::currentcorrect ""
 	# Clear all the temporary IDs in the database
 	::mysql::exec $::mysql_quiz "UPDATE questions SET ques_tempid=NULL"
-	# binding for detecting answers (matches everything)
-	bind pubm * {*} frogesport:checkanswer
 	# Ask the first question
 	frogesport:askquestion
 }
@@ -235,6 +233,8 @@ proc frogesport:askquestion { } {
 	set ::c_after_id [after $::clue_time frogesport:giveclue]
 	# Set the question timeout
 	set ::q_after_id [after $::time_answer frogesport:nocorrect]
+	# Binding for detecting answers (matches everything)
+	bind pubm * {*} frogesport:checkanswer
 }
 
 proc frogesport:giveclue { } {
@@ -1037,7 +1037,7 @@ proc frogesport:checkdelq { nick arg {action "check"} } {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}checkq <id> \[perm\] - Visa en fråga och dess svar. Om ordet \"perm\" finns med används frågans permanenta ID istället för det temporära."
 			}
 			"del" {
-				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}checkq <id> \[perm\] - Visa en fråga och dess svar. Om ordet \"perm\" finns med används frågans permanenta ID istället för det temporära."
+				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}delq <id> \[perm\] - Tar bort en fråga. Om ordet \"perm\" finns med används frågans permanenta ID istället för det temporära."
 			}
 		}
 		return
@@ -1060,7 +1060,7 @@ proc frogesport:checkdelq { nick arg {action "check"} } {
 	set category [lindex $row 1]
 	set question [lindex $row 2]
 	set tempid [lindex $row 3]
-	set answers [lindex $row 4]
+	set answers [list [lindex $row 4]]
 	# Get the rest of the answers
 	while {[set row [::mysql::fetch $::mysql_quiz]] != ""} {
 		lappend answers [lindex $row 4]

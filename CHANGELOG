@@ -1,3 +1,7 @@
+Version 1.2.2.1 - 2012-11-16
+	Bug fixes
+ * Fixed a bug where checkq output the answers in an incorrect way.
+ * Moved the bind to read the answers.
 Version 1.2.2 - 2012-11-16
 	Features
  * The close answers feature now applies to questions where nobody answered correctly too.
