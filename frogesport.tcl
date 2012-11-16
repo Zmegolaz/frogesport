@@ -1,6 +1,6 @@
-###########################################################################################################
-### Frogesport                                                                                          ###
-###########################################################################################################
+###########################################################################
+### Frogesport                                                          ###
+###########################################################################
 ###
 #
 #    Copyright 2011-2012 Zmegolaz <zmegolaz@kaizoku.se>
@@ -23,7 +23,7 @@
 ############################################################
 
 
-set ::frogesport_version "1.2.1"
+set ::frogesport_version "1.2.2"
 
 # Include the config file
 if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -83,23 +83,20 @@ bind pub * "!version" frogesport:version
 # User commands from PM
 bind msg * "recommend" frogesport:msgrecommendq
 
-
 # We need the mysqltcl package
 package require mysqltcl
 
-# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection if it's timed out
-if {[info exist ::mysql_quiz] && [::mysql::state $::mysql_quiz -numeric] > 2} {
+# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection
+if {[info exist ::mysql_quiz] && [::mysql::state $::mysql_quiz -numeric] > 1} {
 	::mysql::close $::mysql_quiz
 }
-	set ::mysql_quiz [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	# We need to use latin1 to be able to handle åäö
-	::mysql::exec $::mysql_quiz "SET NAMES 'latin1'"
+set ::mysql_quiz [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
 
 # Run some configuration checks
 if {$::s_close_behind > [expr $::s_question_time-1]} {
 	set ::close_behind [expr $::s_question_time-1]
 }
-	
+
 # All times are supposed to be in ms
 set ::question_time [expr $::s_question_time*1000]
 set ::clue_time [expr $::s_clue_time*1000]
@@ -114,33 +111,14 @@ set ::clue_percent [string trim $::clue_percent "%"]
 set ::season_code ""
 
 # Load ::admins and ::prizes
-set mysql_getvars [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-::mysql::exec $mysql_getvars "SET NAMES 'latin1'"
-set query1 [::mysql::query $mysql_getvars "SELECT user_nick FROM users WHERE user_class=0"]
-set ::dbadmins ""
-while {[set row [::mysql::fetch $query1]] != ""} {
-	lappend ::dbadmins [lindex $row 0]
-}
-::mysql::endquery $query1
-set ::prizes ""
-::mysql::sel $mysql_getvars "SELECT * FROM prizes"
-while {[set row [::mysql::fetch $mysql_getvars]] != ""} {
-	lappend ::prizes $row
-}
-::mysql::close $mysql_getvars
+set ::dbadmins [::mysql::sel $::mysql_quiz "SELECT user_nick FROM users WHERE user_class=0" -list]
+set ::prizes [::mysql::sel $::mysql_quiz "SELECT * FROM prizes" -list]
 
 # Remember the classes
-set ::classes ""
-set query1 [::mysql::query $::mysql_quiz "SELECT * FROM classes"]
-while {[set row [::mysql::fetch $query1]] != ""} {
-	lappend ::classes $row
-}
-::mysql::endquery $query1
+set ::classes [::mysql::sel $::mysql_quiz "SELECT * FROM classes" -list]
 
 # Remember how many users we currently have
-set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(uid) FROM users"]
-set ::totalusers [lindex [::mysql::fetch $query1] 0]
-::mysql::endquery $query1
+set ::totalusers [::mysql::sel $::mysql_quiz "SELECT COUNT(uid) FROM users" -list]
 
 # procedure to authenticate admins
 proc frogesport:checkauth { nick } {
@@ -177,18 +155,7 @@ proc frogesport:msgupdateclasses { nick host hand arg } {
 	if {![frogesport:checkauth $nick]} {
 		return
 	}
-	set mysql_updclass [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_updclass "SET NAMES 'latin1'"
-	::mysql::sel $mysql_updclass "SELECT * FROM users WHERE user_class!='0'"
-	set answers ""
-	while {[set userrow [::mysql::fetch $mysql_updclass]] != ""} {
-		lappend users $userrow
-	}
-	foreach user $users {
-		set query "UPDATE users SET user_class=(SELECT cid FROM classes WHERE clas_points<=[lindex $user 3] ORDER BY clas_points DESC LIMIT 1) WHERE uid=[lindex $user 0]"
-		::mysql::exec $mysql_updclass $query
-	}
-	::mysql::close $mysql_updclass
+	::mysql::exec $::mysql_quiz "UPDATE users SET user_class=(SELECT cid FROM classes WHERE clas_points<=user_points_total ORDER BY clas_points DESC LIMIT 1) WHERE user_class!='0'"
 	if {$nick != ""} {
 		putserv "PRIVMSG $nick :Alla användares klasser stämmer nu."
 	}
@@ -219,12 +186,6 @@ proc frogesport:stopmess { nick host hand chan arg } {
 
 # Start the bot
 proc frogesport:startquiz { nick host hand chan arg } {
-	# Connect to the mysql database if it isn't already done
-	if {[::mysql::state $::mysql_quiz -numeric] < 3} {
-		set ::mysql_quiz [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-		# We need to use latin1 to be able to handle åäö
-		::mysql::exec $::mysql_quiz "SET NAMES 'latin1'"
-	}
 	# Only admins are allowed to use this procedure
 	if {![frogesport:checkauth $nick]} {
 		return
@@ -257,23 +218,13 @@ proc frogesport:askquestion { } {
 	# Set the current temporary ID
 	set ::cur_temp_id [expr $::cur_temp_id+1]
 	# Get the number of questions we have and multiply it by a random number to get a random offset
-	set query1 [::mysql::query $::mysql_quiz "SELECT floor(RAND() * COUNT(*)) from questions"]
-	set offset [lindex [::mysql::fetch $query1] 0]
-	::mysql::endquery $query1
+	set offset [::mysql::sel $::mysql_quiz "SELECT floor(RAND() * COUNT(*)) from questions" -list]
 	# Get the question, use the previous offset to get a random one
-	set query1 [::mysql::query $::mysql_quiz "SELECT qid, ques_category, ques_question FROM questions LIMIT [::mysql::escape $::mysql_quiz [lindex $offset 0]],1"]
-	set question [::mysql::fetch $query1]
-	::mysql::endquery $query1
+	set question [lindex [::mysql::sel $::mysql_quiz "SELECT qid, ques_category, ques_question FROM questions LIMIT [::mysql::escape $::mysql_quiz [lindex $offset 0]],1" -list] 0]
 	# Set the temporary ID on the question in the database
 	::mysql::exec $::mysql_quiz "UPDATE questions SET ques_tempid=[::mysql::escape $::mysql_quiz $::cur_temp_id] WHERE qid=[::mysql::escape $::mysql_quiz [lindex $question 0]]"
 	# Get the answers
-	set query1 [::mysql::query $::mysql_quiz "SELECT answ_answer FROM answers WHERE answ_question=[::mysql::escape $::mysql_quiz [lindex $question 0]]"]
-	# Unset the previous answers
-	set ::answers ""
-	while {[set row [::mysql::fetch $query1]] != ""} {
-		lappend ::answers [lindex $row 0]
-	}
-	::mysql::endquery $query1
+	set ::answers [::mysql::sel $::mysql_quiz "SELECT answ_answer FROM answers WHERE answ_question=[::mysql::escape $::mysql_quiz [lindex $question 0]]" -flatlist]
 	# Ask the question
 	putnow "PRIVMSG $::running_chan :\003${::color_text},${::color_background}$::cur_temp_id: [lindex $question 1]: [lindex $question 2]"
 	# The current question is not answered
@@ -290,6 +241,7 @@ proc frogesport:giveclue { } {
 	# Count the number of answers and select one of those
 	set randanswer [lindex $::answers [expr int(rand()*[llength $::answers])]]
 	# Split it in words
+	# Check if the clue is four digits, these should have a special clue
 	if {[string length $randanswer] == "4" && [string is integer $randanswer]} {
 		set maskedclue "[string index $randanswer 0]_[string index $randanswer 2]_"
 	} else {
@@ -323,8 +275,19 @@ proc frogesport:nocorrect { } {
 			set correctanswer " Det rätta svaret var: [join $::answers ", "]"
 		}
 	}
-	# Empty the answer variable
-	set ::answers ""
+	# No one can get a correct answer for this.
+	set ::answered 1
+	# Start the close behind timer if it's enabled.
+	if {$::s_close_behind} {
+		set ::close_behind_time [clock clicks -milliseconds]
+		set ::close_behind_id [after $::close_behind frogesport:closebehind]
+		# Remember that we are collecting nicks
+		set ::close_behind_collecting 1
+		# Noone answered correctly, everyone is eligeble to be second
+		set ::last_correct_nick ""
+		# We have to set this here to be able to search this list later
+		set ::correct_close_nick ""
+	}
 	# If someone for some reason set the clue timer higher than the answer time, clear the clue timer
 	after cancel $::c_after_id
 	# Tell everyone the time is up
@@ -336,7 +299,7 @@ proc frogesport:nocorrect { } {
 }
 
 proc frogesport:checkanswer { nick host hand chan arg } {
-	# If we're not running but the bind for some reason is still here, just ignore it. This should never happen
+	# If we're not running but the bind for some reason is still here, unbind it. This should never happen
 	if {!$::is_running} {
 		catch { unbind pubm * {*} frogesport:checkanswer }
 		return
@@ -345,7 +308,7 @@ proc frogesport:checkanswer { nick host hand chan arg } {
 	# Replace *, ?, [ and ] with the escaped characters
 	set arg [string map { "*" "\\\*" "?" "\\\?" "\[" "\\\[" "\]" "\\\]" } $arg]
 	# Check if the answer was correct
-	if {[lsearch -nocase $::answers $arg] >= 0} {
+	if {[info exists ::answers] && [lsearch -nocase $::answers $arg] >= 0} {
 		# Check wether or not this is the first correct answer
 		if {$::answered} {
 			# Remember the nick if the close behind feature is enabled, we're collecting nicks, it's this users first close behind answer and the user wasn't the first answerer
@@ -355,7 +318,6 @@ proc frogesport:checkanswer { nick host hand chan arg } {
 				}
 				lappend ::correct_close_nick $nick
 				lappend ::correct_close_time [expr double([clock clicks -milliseconds]-$::close_behind_time)/1000]
-				#set ::correct_close($nick) [expr double([clock clicks -milliseconds]-$::close_behind_time)/1000]
 			}
 		} else {
 			# Remember that we have got a correct answer
@@ -368,18 +330,16 @@ proc frogesport:checkanswer { nick host hand chan arg } {
 			# Start the close behind timer if it's enabled.
 			if {$::s_close_behind} {
 				set ::close_behind_time [clock clicks -milliseconds]
-				set ::close_behind_id [after [expr $::close_behind] frogesport:closebehind]
+				set ::close_behind_id [after $::close_behind frogesport:closebehind]
 				# Remember that we are collecting nicks
 				set ::close_behind_collecting 1
 				# Remember who answered correctly
 				set ::last_correct_nick $nick
+				# We have to set this here to be able to search this list later
 				set ::correct_close_nick ""
 			}
-			
 			# Get new user information
-			set query1 [::mysql::query $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1"]
-			set curuser [::mysql::fetch $query1]
-			::mysql::endquery $query1
+			set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1" -list] 0]
 			# Is this a new user?
 			if {$curuser == ""} {
 				# We have a new user!
@@ -411,9 +371,7 @@ proc frogesport:checkanswer { nick host hand chan arg } {
 				set updateclass ""
 				set updatemana ""
 				if {[lsearch -index 1 $::classes [expr [lindex $curuser 3]+1]] >= 0 && [lindex $curuser 7] != "0"} {
-					set query1 [::mysql::query $::mysql_quiz "SELECT * FROM classes WHERE clas_points=[expr [lindex $curuser 3]+1]"]
-					set newclass [::mysql::fetch $query1]
-					::mysql::endquery $query1
+					set newclass [::mysql::sel $::mysql_quiz "SELECT * FROM classes WHERE clas_points=[expr [lindex $curuser 3]+1]" -list]
 					set updateclass ", user_class=[lindex $newclass 0]"
 					# We should also add mana, this isn't done in the next if statement because we still use the old class
 					set updatemana ", user_mana=user_mana+1"
@@ -423,12 +381,10 @@ proc frogesport:checkanswer { nick host hand chan arg } {
 					set updatemana ", user_mana=user_mana+1"
 				}
 				::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season+1, user_points_total=user_points_total+1, user_lastactive=[clock seconds]$updatetime$updatestreak$updateclass$updatemana WHERE uid=[lindex $curuser 0]"
-				set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>[expr [lindex $curuser 2]+1]"]
-				set rank [expr [lindex [::mysql::fetch $query1] 0]+1]
-				::mysql::endquery $query1
-				set query1 [::mysql::query $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season=[expr [lindex $curuser 2]+1]"]
-				set onelessrank [lindex [::mysql::fetch $query1] 0]
-				::mysql::endquery $query1
+				::mysql::sel $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>[expr [lindex $curuser 2]+1]"
+				set rank [expr [lindex [::mysql::fetch $::mysql_quiz] 0]+1]
+				::mysql::sel $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season=[expr [lindex $curuser 2]+1]"
+				set onelessrank [lindex [::mysql::fetch $::mysql_quiz] 0]
 				set rankmess " Rank: $rank av $::totalusers."
 			}
 			set curclass ""
@@ -465,7 +421,7 @@ proc frogesport:closebehind { } {
 	# We are no longer collecting nicks
 	set ::close_behind_collecting 0
 	# Check if there are any users who are close behind
-	if {[info exists ::correct_close]} {
+	if {[info exists ::correct_close_nick]} {
 		set num_nicks [llength $::correct_close_nick]
 		for {set i 0} {$i<$num_nicks} {incr i} {
 			lappend output "\003${::color_nick},${::color_background}[lindex $::correct_close_nick $i] \003${::color_text}var \003${::color_statsnumber}[lindex $::correct_close_time $i]\003${::color_text} sekunder efter"
@@ -494,8 +450,6 @@ proc frogesport:stopquiz { nick host hand chan arg } {
 	set ::cur_temp_id 0
 	# Unbind the answer checker to save CPU cycles
 	catch { unbind pubm * {*} frogesport:checkanswer }
-	# Close the MySQL connection to avoid memory leaks
-	::mysql::close $::mysql_quiz
 	# Clear all pending after commands.
 	foreach i [split [after info]] {
 		after cancel $i
@@ -527,7 +481,7 @@ proc frogesport:continue { nick host hand chan arg } {
 		putserv "PRIVMSG $chan :\003${::color_text},${::color_background}Det finns inget att fortsätta på!"
 		return
 	}
-	# Clear all pending after commands, in case the command was used when it wasn't needed. This effectively just cancels the current question
+	# Clear all pending after commands, in case the command was used when it wasn't needed. This effectively just cancels the current question and starts a new one
 	set running [split [after info]]
 	foreach i $running {
 		after cancel $i
@@ -549,36 +503,24 @@ proc frogesport:ping { nick host hand chan arg } {
 }
 
 proc frogesport:stats { nick host hand chan arg } {
-	# Connect to the database
-	set mysql_stats [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_stats "SET NAMES 'latin1'"
 	set user [lindex [split $arg] 0]
 	# Check if we have an argument (not with eachother, not that type of argument), if not, use the users nick
 	if {$user == ""} {
 		set user $nick
 	}
-	# Get the user above the current user
-	set query1 [::mysql::query $mysql_stats "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_stats $user]' LIMIT 1"]
-	set curuser [::mysql::fetch $query1]
-	::mysql::endquery $query1
+	# Get info about the current user
+	set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $user]' LIMIT 1" -list] 0]
 	# Check if the user exists
 	if {$curuser == ""} {
 		putserv "NOTICE $nick :\003${::color_text},${::color_background}$user har inte svarat rätt på någon fråga än."
-		::mysql::close $mysql_stats
 		return
 	}
 	# Count the number of users in the database
-	set query1 [::mysql::query $mysql_stats "SELECT COUNT(uid) FROM users"]
-	set totalusers [::mysql::fetch $query1]
-	::mysql::endquery $query1
+	set totalusers [::mysql::sel $::mysql_quiz "SELECT COUNT(uid) FROM users" -list]
 	# Count the number of users before the current user
-	set query1 [::mysql::query $mysql_stats "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>[lindex $curuser 2]"]
-	set usersabove [::mysql::fetch $query1]
-	::mysql::endquery $query1
+	set usersabove [::mysql::sel $::mysql_quiz "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>[lindex $curuser 2]" -list]
 	# Get info about the user above the current one
-	set query1 [::mysql::query $mysql_stats "SELECT `user_nick`,`user_points_season` FROM `users` WHERE `user_points_season`=(SELECT MIN(`user_points_season`) FROM `users`WHERE `user_points_season`>[lindex $curuser 2]) LIMIT 1"]
-	set aboveuser [::mysql::fetch $query1]
-	::mysql::endquery $query1
+	set aboveuser [lindex [::mysql::sel $::mysql_quiz "SELECT `user_nick`,`user_points_season` FROM `users` WHERE `user_points_season`=(SELECT MIN(`user_points_season`) FROM `users`WHERE `user_points_season`>[lindex $curuser 2]) LIMIT 1" -list] 0]
 	# Check if we're in the lead
 	if {$aboveuser != ""} {
 		set pointsfrom "\003${::color_statsnumber}[expr [lindex $aboveuser 1]-[lindex $curuser 2]]\003${::color_text} poäng ifrån \003${::color_nick}[lindex $aboveuser 0]"
@@ -596,7 +538,7 @@ proc frogesport:stats { nick host hand chan arg } {
 	}
 	putserv "NOTICE $nick :\003${::color_text},${::color_background}Statistik för \003${::color_nick}[lindex $curuser 1]\003${::color_text}:\
 		Snabbaste tid: \003${::color_statsnumber}[lindex $curuser 4]\003${::color_text} sekunder.\
-		bästa streak: \003${::color_statsnumber}[lindex $curuser 5]\003${::color_text}.\
+		Bästa streak: \003${::color_statsnumber}[lindex $curuser 5]\003${::color_text}.\
 		Nuvarande poäng: \003${::color_statsnumber}[lindex $curuser 2]\003${::color_text}.\
 		Total poäng: \003${::color_statsnumber}[lindex $curuser 3]\003${::color_text}.\
 		Klass: \003${::color_class}$curclass\003${::color_text}.\
@@ -604,34 +546,25 @@ proc frogesport:stats { nick host hand chan arg } {
 		Mana: \003${::color_statsnumber}[lindex $curuser 6]\003${::color_text}.\
 		Rankad: \003${::color_statsnumber}[expr [lindex $usersabove 0]+1]\003${::color_text} av \003${::color_statsnumber}[lindex $totalusers 0]\003${::color_text}.\
 		$lastpoint$pointsfrom"
-	# Disconnect from the database
-	::mysql::close $mysql_stats
 }
 
 proc frogesport:spell { nick host hand chan arg } {
-	# Connect to the database
-	set mysql_spell [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_spell "SET NAMES 'latin1'"
 	# Get info about the current user
-	set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $nick]' LIMIT 1"]
-	set curuser [::mysql::fetch $query1]
-	::mysql::endquery $query1
+	set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1" -list] 0]
 	# Check if the user exists
 	if {$curuser == ""} {
 		# Notify user, close MySQL connection and return
 		putserv "NOTICE $nick :Your nick doesn't exist in the database"
-		::mysql::close $mysql_spell
 		return
 	}
 	# Check if the user has the required level to use spells, class 0 is God.
 	if {[lindex $curuser 7] < $::spell_level && [lindex $curuser 7] != "0"} {
-		# Notify user, close MySQL connection and return
+		# Notify user and return
 		putserv "NOTICE $nick :\003${::color_text},${::color_background}Du måste vara level \003${::color_statsnumber}$::spell_level\003${::color_text} för att använda magier, du är bara på \003${::color_statsnumber}[lindex $curuser 7]"
-		::mysql::close $mysql_spell
 		return
 	}
 	set spell [lindex [split $arg] 0]
-	# Set some nitification variables
+	# Set some notification variables
 	set helpvar "NOTICE $nick :\003${::color_text},${::color_background}Användning av !spell:\
 		!spell answer (få svaret på den nuvarande frågan, kostar $::cost_answer mana),\
 		!spell steal <\003${::color_nick}användare\003${::color_text}> (stjäl $::steal_points poäng, kostar $::cost_steal mana),\
@@ -655,9 +588,7 @@ proc frogesport:spell { nick host hand chan arg } {
 					putserv $lowmana
 				} else {
 					# Get info about the user who's being robbed
-					set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $user]' LIMIT 1"]
-					set robbeduser [::mysql::fetch $query1]
-					::mysql::endquery $query1
+					set robbeduser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $user]' LIMIT 1" -list] 0]
 					# If the robbed user has less than ::steal_points points, steal only them
 					if {[lindex $robbeduser 2] < $::steal_points} {
 						set stealpoints [lindex $robbeduser 2]
@@ -666,11 +597,11 @@ proc frogesport:spell { nick host hand chan arg } {
 					}
 					# We don't need to check for class advancements since this only affects the season points and classes are based on total points
 					# Remove points from the robbed user and add them to the robber, and remove mana from the robber
-					::mysql::exec $mysql_spell "UPDATE users SET user_points_season=user_points_season-$stealpoints WHERE uid=[lindex $robbeduser 0] LIMIT 1"
-					::mysql::exec $mysql_spell "UPDATE users SET user_points_season=user_points_season+$stealpoints, user_mana=user_mana-$::cost_steal WHERE uid=[lindex $curuser 0] LIMIT 1"
+					::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season-$stealpoints WHERE uid=[lindex $robbeduser 0] LIMIT 1"
+					::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season+$stealpoints, user_mana=user_mana-$::cost_steal WHERE uid=[lindex $curuser 0] LIMIT 1"
 					# Tell everyone and notify the stealer that the deed is done
 					putserv "PRIVMSG $chan :\003${::color_nick},${::color_background}$nick\003${::color_text} stal $stealpoints poäng från \003${::color_nick}$user"
-					putserv "NOTICE $nick :\003${::color_text},${::color_background}Du stal \003${::color_statsnumber}$stealpoints\003${::color_text} poäng från \003${::color_nick}$user\003${::color_text}, [expr [lindex $curuser 6]-$::cost_steal] mana kvar."
+					putserv "NOTICE $nick :\003${::color_text},${::color_background}Du stal \003${::color_statsnumber}$stealpoints\003${::color_text} poäng från \003${::color_nick}$user\003${::color_text},${::color_background}, [expr [lindex $curuser 6]-$::cost_steal] mana kvar."
 				}
 			}
 		}
@@ -683,18 +614,14 @@ proc frogesport:spell { nick host hand chan arg } {
 				putserv "NOTICE $nick :\003${::color_text},${::color_background}Du kan inte ge dig själv poäng!"
 			} else {
 				# Get info about the current user
-				set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $nick]' LIMIT 1"]
-				set curuser [::mysql::fetch $query1]
-				::mysql::endquery $query1
+				set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1" -list] 0]
 				# If this user has less than ::cost_steal mana, it's not allowed to steal
 				if {[lindex $curuser 6] < $::cost_give} {
 					putserv $lowmana
 				} else {
 					# Get info about the user who's being given points
-					set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $user]' LIMIT 1"]
-					set givenuser [::mysql::fetch $query1]
-					::mysql::endquery $query1
-					# If the giving user has less than ::give_points points, give only them
+					set givenuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $user]' LIMIT 1" -list] 0]
+					# If the giving user has less than ::give_points points, give only that ammount
 					if {[lindex $curuser 2] < $::give_points} {
 						set givepoints [lindex $curuser 2]
 					} else {
@@ -702,11 +629,11 @@ proc frogesport:spell { nick host hand chan arg } {
 					}
 					# We don't need to check for class advancements since this only affects the season points, and classes are based on total points
 					# Remove points from the giving user and add them to the lycky one, and remove mana from the giver
-					::mysql::exec $mysql_spell "UPDATE users SET user_points_season=user_points_season+$givepoints WHERE uid=[lindex $givenuser 0] LIMIT 1"
-					::mysql::exec $mysql_spell "UPDATE users SET user_points_season=user_points_season-$givepoints, user_mana=user_mana-$::cost_give WHERE uid=[lindex $curuser 0] LIMIT 1"
+					::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season+$givepoints WHERE uid=[lindex $givenuser 0] LIMIT 1"
+					::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season-$givepoints, user_mana=user_mana-$::cost_give WHERE uid=[lindex $curuser 0] LIMIT 1"
 					# Tell everyone and notify the stealer that the deed is done
 					putserv "PRIVMSG $chan :\003${::color_nick},${::color_background}$nick\003${::color_text} gav $givepoints poäng till \003${::color_nick}$user"
-					putserv "NOTICE $nick :\003${::color_text},${::color_background}Du gav $givepoints poäng till \003${::color_nick}$user\003${::color_text}, [expr [lindex $curuser 6]-$::cost_steal] mana kvar."
+					putserv "NOTICE $nick :\003${::color_text},${::color_background}Du gav \003${::color_statsnumber}$givepoints\003${::color_text} poäng till \003${::color_nick}$user\003${::color_text},${::color_background}, [expr [lindex $curuser 6]-$::cost_steal] mana kvar."
 				}
 			}
 		}
@@ -717,9 +644,7 @@ proc frogesport:spell { nick host hand chan arg } {
 				putserv "NOTICE $nick :\003${::color_text},${::color_background}Det finns inget svar att hämta."
 			} elseif {[info exists ::is_running] && $::is_running} {
 				# Get info about the current user
-				set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $nick]' LIMIT 1"]
-				set curuser [::mysql::fetch $query1]
-				::mysql::endquery $query1
+				set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1" -list] 0]
 				# If this user has less than ::cost_answer mana, it's not allowed to get the answers
 				if {[lindex $curuser 6] < $::cost_answer} {
 					putserv $lowmana
@@ -732,7 +657,7 @@ proc frogesport:spell { nick host hand chan arg } {
 					}
 					append correctanswer [join $::answers "\003${::color_text},${::color_background}, \003${::color_answer}"]
 					# Remove mana from the user
-					::mysql::exec $mysql_spell "UPDATE users SET user_mana=user_mana-$::cost_answer WHERE uid=[lindex $curuser 0] LIMIT 1"
+					::mysql::exec $::mysql_quiz "UPDATE users SET user_mana=user_mana-$::cost_answer WHERE uid=[lindex $curuser 0] LIMIT 1"
 					# Give the user the correct answer(s)
 					putserv "NOTICE $nick :$correctanswer"
 				}
@@ -743,34 +668,28 @@ proc frogesport:spell { nick host hand chan arg } {
 			# Check if the id is valid. ... This variable is currently named $user since it was previously only used for nicks, but oh well
 			if {![regexp "^\[0-9\]+\$" $user]} {
 				putserv $helpvar
-				::mysql::close $mysql_spell
 				return
 			}
 			# Get info about the current user
-			set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $nick]' LIMIT 1"]
-			set curuser [::mysql::fetch $query1]
-			::mysql::endquery $query1
+			set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1" -list] 0]
 			if {[lindex $curuser 6] < $::cost_prevanswer} {
 			# If this user has less than ::cost_answer mana, it's not allowed to get the answers
 				putserv $lowmana
-				::mysql::close $mysql_spell
 				return
 			} 
 			# Check that it's a valid ID
 			if {$user >= $::cur_temp_id} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Du får bara svaret på tidigare frågor!"
-				::mysql::close $mysql_spell
 				return
 			}
 			# Get the answers for the question
-			set numrows [::mysql::sel $mysql_spell "SELECT answers.answ_answer FROM questions LEFT JOIN answers ON questions.qid=answers.answ_question WHERE questions.ques_tempid=$user"]
+			set numrows [::mysql::sel $::mysql_quiz "SELECT answers.answ_answer FROM questions LEFT JOIN answers ON questions.qid=answers.answ_question WHERE questions.ques_tempid=$user"]
 			# Check if the tempid is valid
 			if {$numrows == "0"} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Tyvärr var det för länge sendan den här frågan ställdes."
-				::mysql::close $mysql_spell
 				return
 			}
-			while {[set row [::mysql::fetch $mysql_spell]] != ""} {
+			while {[set row [::mysql::fetch $::mysql_quiz]] != ""} {
 				lappend answers [lindex $row 0]
 			}
 			# Create a list of the correct answers
@@ -781,7 +700,7 @@ proc frogesport:spell { nick host hand chan arg } {
 			}
 			append correctanswer [join $answers "\003${::color_text},${::color_background}, \003${::color_answer}"]
 			# Remove mana from the user
-			::mysql::exec $mysql_spell "UPDATE users SET user_mana=user_mana-$::cost_prevanswer WHERE uid=[lindex $curuser 0] LIMIT 1"
+			::mysql::exec $::mysql_quiz "UPDATE users SET user_mana=user_mana-$::cost_prevanswer WHERE uid=[lindex $curuser 0] LIMIT 1"
 			# Give the user the correct answer(s)
 			putserv "NOTICE $nick :$correctanswer"
 		}
@@ -792,14 +711,12 @@ proc frogesport:spell { nick host hand chan arg } {
 				putserv "NOTICE $nick :\003${::color_text},${::color_background}Du har redan voice (+v)"
 			} else {
 				# Get info about the current user
-				set query1 [::mysql::query $mysql_spell "SELECT * FROM users WHERE user_nick='[::mysql::escape $mysql_spell $nick]' LIMIT 1"]
-				set curuser [::mysql::fetch $query1]
-				::mysql::endquery $query1
+				set curuser [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $nick]' LIMIT 1" -list] 0]
 				# If this user has less than ::cost_setvoice mana, it's not allowed to set voice
 				if {[lindex $curuser 6] < $::cost_setvoice} {
 					putserv $lowmana
 				} else {
-					::mysql::exec $mysql_spell "UPDATE users SET user_mana=user_mana-$::cost_setvoice WHERE uid=[lindex $curuser 0] LIMIT 1"
+					::mysql::exec $::mysql_quiz "UPDATE users SET user_mana=user_mana-$::cost_setvoice WHERE uid=[lindex $curuser 0] LIMIT 1"
 					# Give the user voice
 					putserv "MODE $::running_chan +v $nick"
 				}
@@ -809,7 +726,6 @@ proc frogesport:spell { nick host hand chan arg } {
 			putserv $helpvar
 		}
 	}
-	::mysql::close $mysql_spell
 }
 
 proc frogesport:report { nick host hand chan arg } {
@@ -820,21 +736,15 @@ proc frogesport:report { nick host hand chan arg } {
 		putserv "NOTICE $nick :\003${::color_text},${::color_background}!report <id> <kommentar> - Rapportera en fråga. Du måste ange både ID och en kommentar om varför du rapporterade den."
 		return
 	}
-	# Connect to the database
-	set mysql_report [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_report "SET NAMES 'latin1'"
 	# Check if the temporary ID that the user supplied exists
-	set query1 [::mysql::query $mysql_report "SELECT COUNT(ques_tempid) FROM questions WHERE ques_tempid='$tempid' LIMIT 1"]
-	set validid [lindex [::mysql::fetch $query1] 0]
-	::mysql::endquery $query1
+	set validid [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(ques_tempid) FROM questions WHERE ques_tempid='$tempid' LIMIT 1" -list] 0]
 	if {$validid} {
 		# The ID is valid, add the report and notify the user
-		::mysql::exec $mysql_report "INSERT INTO reports (repo_qid, repo_comment, repo_user) VALUES((SELECT qid FROM questions WHERE ques_tempid='[::mysql::escape $mysql_report $tempid]' LIMIT 1), '[::mysql::escape $mysql_report $comment]', '[::mysql::escape $mysql_report $nick]')"
+		::mysql::exec $::mysql_quiz "INSERT INTO reports (repo_qid, repo_comment, repo_user) VALUES((SELECT qid FROM questions WHERE ques_tempid='[::mysql::escape $::mysql_quiz $tempid]' LIMIT 1), '[::mysql::escape $::mysql_quiz $comment]', '[::mysql::escape $::mysql_quiz $nick]')"
 		putserv "NOTICE $nick :\003${::color_text},${::color_background}Fråga $tempid rapporterad, tack!"
 	} else {
 		putserv "NOTICE $nick :\003${::color_text},${::color_background}Fråga $tempid har inte ställts än, eller så var det för länge sedan."
 	}
-	::mysql::close $mysql_report
 }
 
 proc frogesport:recommendq { nick host hand chan arg } {
@@ -856,16 +766,13 @@ proc frogesport:msgrecommendq { nick host hand arg } {
 		putserv "PRIVMSG $nick :$helpvar"
 		return
 	}
-	set mysql_recommend [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_recommend "SET NAMES 'latin1'"
-	::mysql::exec $mysql_recommend "INSERT INTO recommendqs (recq_category, recq_question, recq_user) VALUES('[::mysql::escape $mysql_recommend $category]', '[::mysql::escape $mysql_recommend $question]', '[::mysql::escape $mysql_recommend $nick]')"
+	::mysql::exec $::mysql_quiz "INSERT INTO recommendqs (recq_category, recq_question, recq_user) VALUES('[::mysql::escape $::mysql_quiz $category]', '[::mysql::escape $::mysql_quiz $question]', '[::mysql::escape $::mysql_quiz $nick]')"
 	# Get the ID of the question we just entered
 	set rqid [::mysql::insertid $mysql_recommend]
 	foreach answer $answers {
-		lappend sql_answers "('$rqid', '[::mysql::escape $mysql_recommend $answer]')" 
+		lappend sql_answers "('$rqid', '[::mysql::escape $::mysql_quiz $answer]')" 
 	}
-	::mysql::exec $mysql_recommend "INSERT INTO recommendas (reca_rqid, reca_answer) VALUES[join $sql_answers ", "]"
-	::mysql::close $mysql_recommend
+	::mysql::exec $::mysql_quiz "INSERT INTO recommendas (reca_rqid, reca_answer) VALUES[join $sql_answers ", "]"
 	putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Tack så mycket, frågan är inlagd!"
 }
 
@@ -882,18 +789,16 @@ proc frogesport:msgrecs { nick host hand arg } {
 		putserv "PRIVMSG $nick :\003${::color_text},${::color_background}recs <show|accept|delete> \[frågans id\] - Visar, tar bort och accepterar rekommenderade frågor."
 		return
 	}
-	set mysql_recoms [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_recoms "SET NAMES 'latin1'"
 	switch $action {
 		"visa" -
 		"view" -
 		"show" {
-			set recoms [::mysql::sel $mysql_recoms "SELECT rqid, recq_category, recq_question, recq_user FROM recommendqs ORDER BY rqid ASC LIMIT [::mysql::escape $mysql_recoms $::recommend_show]" -list]
-			set numrecoms [lindex [::mysql::sel $mysql_recoms "SELECT COUNT(rqid) FROM recommendqs" -list] 0 0]
+			set recoms [::mysql::sel $::mysql_quiz "SELECT rqid, recq_category, recq_question, recq_user FROM recommendqs ORDER BY rqid ASC LIMIT [::mysql::escape $::mysql_quiz $::recommend_show]" -list]
+			set numrecoms [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(rqid) FROM recommendqs" -list] 0 0]
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}De $::recommend_show senaste rekommenderade frågorna av totalt $numrecoms:"
 			foreach row $recoms {
-				# We have to use a query in a loop here, we can't join the answer table and get the limit correctly otherwise
-				set answers [::mysql::sel $mysql_recoms "SELECT reca_answer FROM recommendas WHERE reca_rqid=[::mysql::escape $mysql_recoms [lindex $row 0]]" -list]
+				# We have to use a query in a loop here, we can't join the answer table and get the limit correct otherwise
+				set answers [::mysql::sel $::mysql_quiz "SELECT reca_answer FROM recommendas WHERE reca_rqid=[::mysql::escape $::mysql_quiz [lindex $row 0]]" -list]
 				# Get all the answers
 				set allanswers ""
 				foreach row2 $answers {
@@ -912,16 +817,14 @@ proc frogesport:msgrecs { nick host hand arg } {
 			# Check if the supplied id is numeric
 			if {![regexp "^\[0-9\]+\$" $value]} {
 				putserv "PRIVMSG $nick :\003${::color_statsnumber},${::color_background}$value\003${::color_text} är inte ett giltigt ID."
-				::mysql::close $mysql_recoms
 				return
 			}
-			set count [::mysql::sel $mysql_recoms "SELECT COUNT(rqid) FROM recommendqs WHERE rqid='[::mysql::escape $mysql_recoms $value]'" -list]
+			set count [::mysql::sel $::mysql_quiz "SELECT COUNT(rqid) FROM recommendqs WHERE rqid='[::mysql::escape $::mysql_quiz $value]'" -list]
 			if {![lindex $count 0]} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen rekommenderad fråga med ID \003${::color_statsnumber}$value\003${::color_text}."
-				::mysql::close $mysql_recoms
 				return
 			}
-			::mysql::exec $mysql_recoms "DELETE FROM recommendqs WHERE rqid='[::mysql::escape $mysql_recoms $value]'"
+			::mysql::exec $::mysql_quiz "DELETE FROM recommendqs WHERE rqid='[::mysql::escape $::mysql_quiz $value]'"
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Den rekommenderade frågan med ID \003${::color_statsnumber}$value\003${::color_text} borttagen!"
 		}
 		"acceptera" -
@@ -929,28 +832,24 @@ proc frogesport:msgrecs { nick host hand arg } {
 			# Check if the supplied id is numeric
 			if {![regexp "^\[0-9\]+\$" $value]} {
 				putserv "PRIVMSG $nick :\003${::color_statsnumber},${::color_background}$value\003${::color_text} är inte ett giltigt ID."
-				::mysql::close $mysql_recoms
 				return
 			}
-			set count [::mysql::sel $mysql_recoms "SELECT COUNT(`rqid`) FROM `recommendqs` WHERE `rqid`=[::mysql::escape $mysql_recoms $value]" -list]
+			set count [::mysql::sel $::mysql_quiz "SELECT COUNT(`rqid`) FROM `recommendqs` WHERE `rqid`=[::mysql::escape $::mysql_quiz $value]" -list]
 			if {![lindex $count 0]} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen rekommenderad fråga med ID \003${::color_statsnumber}$value\003${::color_text}."
-				::mysql::close $mysql_recoms
 				return
 			}
-			::mysql::exec $mysql_recoms "INSERT INTO `questions` (`ques_category`, `ques_question`) SELECT `recq_category`, `recq_question` FROM `recommendqs` WHERE `rqid`=[::mysql::escape $mysql_recoms $value]"
+			::mysql::exec $::mysql_quiz "INSERT INTO `questions` (`ques_category`, `ques_question`) SELECT `recq_category`, `recq_question` FROM `recommendqs` WHERE `rqid`=[::mysql::escape $::mysql_quiz $value]"
 			set newid [::mysql::insertid $mysql_recoms]
-			::mysql::exec $mysql_recoms "INSERT INTO `answers` (`answ_question`, `answ_answer`) SELECT '$newid', `reca_answer` FROM `recommendas` WHERE `reca_rqid`=[::mysql::escape $mysql_recoms $value]"
-			::mysql::exec $mysql_recoms "DELETE FROM `recommendqs` WHERE `rqid`=[::mysql::escape $mysql_recoms $value]"
+			::mysql::exec $::mysql_quiz "INSERT INTO `answers` (`answ_question`, `answ_answer`) SELECT '$newid', `reca_answer` FROM `recommendas` WHERE `reca_rqid`=[::mysql::escape $::mysql_quiz $value]"
+			::mysql::exec $::mysql_quiz "DELETE FROM `recommendqs` WHERE `rqid`=[::mysql::escape $::mysql_quiz $value]"
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Den rekommenderade frågan med ID \003${::color_statsnumber}$value\003${::color_text} accepterad och inlagt med permanent ID \003${::color_statsnumber}$newid\003${::color_text}!"
 		}
 		default {
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Visar tar bort och accepterar rekommenderade frågor. Användning: recs <show|delete|accept> <id>"
-			::mysql::close $mysql_recoms
 			return
 		}
 	}
-	::mysql::close $mysql_recoms
 }
 
 proc frogesport:answer { nick host hand chan arg } {
@@ -981,14 +880,8 @@ proc frogesport:top10 { nick host hand chan arg } {
 	frogesport:top $nick "season" 10
 }
 proc frogesport:top { nick scope number } {
-	set mysql_top [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_top "SET NAMES 'latin1'"
 	# Get the data
-	set query1 [::mysql::query $mysql_top "SELECT user_nick,user_points_$scope FROM users ORDER BY user_points_$scope DESC LIMIT $number"]
-	while {[set row [::mysql::fetch $query1]] != ""} {
-		lappend top $row
-	}
-	::mysql::endquery $query1
+	putlog [::mysql::sel $::mysql_quiz "SELECT user_nick,user_points_$scope FROM users ORDER BY user_points_$scope DESC LIMIT $number" -list]
 	# Decide what to write to the user
 	switch $scope {
 		"season" {
@@ -1006,7 +899,6 @@ proc frogesport:top { nick scope number } {
 	}
 	# Output the whole thing
 	putserv "NOTICE $nick :$topout"
-	::mysql::close $mysql_top
 }
 
 # Give the user help
@@ -1046,27 +938,23 @@ proc frogesport:compare { nick host hand chan arg {total "0"} } {
 			incr numnicks
 		}
 	}
-	# Database stuff, you know the drill
-	set mysql_compare [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_compare "SET NAMES 'latin1'"
 	# Create the query list of nicks
-	set allnicks "user_nick='[join [::mysql::escape $mysql_compare $nicks] "' OR user_nick='"]'"
-	set numrows [::mysql::sel $mysql_compare "SELECT user_nick, user_points_$column FROM users WHERE $allnicks ORDER BY user_points_$column DESC"]
+	set allnicks "user_nick='[join [::mysql::escape $::mysql_quiz $nicks] "' OR user_nick='"]'"
+	set numrows [::mysql::sel $::mysql_quiz "SELECT user_nick, user_points_$column FROM users WHERE $allnicks ORDER BY user_points_$column DESC"]
 	# If we didn't get the same number of results as we had nicks, one or more nick wasn't found. Find out which one
 	if {$numrows != $numnicks} {
-		while {[set row [::mysql::fetch $mysql_compare]] != ""} {
+		while {[set row [::mysql::fetch $::mysql_quiz]] != ""} {
 			# Find out where the nick was found
 			set where [lsearch -nocase $nicks [lindex $row 0]]
 			# Remove it. We do this in two steps because we don't want to search the list twise
 			set nicks [lreplace $nicks $where $where]
 		}
 		putserv "NOTICE $nick :\003${::color_text},${::color_background}Nick hittades inte: \003${::color_nick}[join $nicks "\003${::color_text},${::color_background}, \003${::color_nick}"]"
-		::mysql::close $mysql_compare
 		return
 	}
 	# Get all user info
 	set i 1
-	while {[set row [::mysql::fetch $mysql_compare]] != ""} {
+	while {[set row [::mysql::fetch $::mysql_quiz]] != ""} {
 		if {![info exists lastpoints]} {
 			set after ""
 		} else {
@@ -1078,7 +966,6 @@ proc frogesport:compare { nick host hand chan arg {total "0"} } {
 	}
 	# Output everything!
 	putserv "NOTICE $nick :\003${::color_text},${::color_background}Jämförda användare:$output"
-	::mysql::close $mysql_compare
 }
 proc frogesport:comparetot { nick host hand chan arg } {
 	# Compare the totalt points. This procedure would be an almost exact copy of compare, so use that instead
@@ -1116,9 +1003,7 @@ proc frogesport:rewpun { action nick arg } {
 			set message "\003${::color_nick},${::color_background}$nick\003${::color_text} bestraffade \003${::color_nick}$arg\003${::color_text} med \003${::color_statsnumber}$::punish_points\003${::color_text} poäng!"
 		}
 	}
-	set mysql_rewpun [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_rewpun "SET NAMES 'latin1'"
-	set numrows [::mysql::exec $mysql_rewpun "UPDATE users SET user_points_season=user_points_season$updatepoints WHERE user_nick='[::mysql::escape $mysql_rewpun $arg]' LIMIT 1"]
+	set numrows [::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=user_points_season$updatepoints WHERE user_nick='[::mysql::escape $::mysql_quiz $arg]' LIMIT 1"]
 	if {$numrows > 0} {
 		putserv "PRIVMSG $::running_chan :$message"
 	}
@@ -1162,15 +1047,11 @@ proc frogesport:checkdelq { nick arg {action "check"} } {
 	if {$perm == "perm"} {
 		set column "qid"
 	}
-	set mysql_checkq [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_checkq "SET NAMES 'latin1'"
 	# Get the question and answers in one query by joining the tables
-	set query1 [::mysql::query $mysql_checkq "SELECT questions.qid, questions.ques_category, questions.ques_question, questions.ques_tempid, answers.answ_answer FROM questions LEFT JOIN answers ON questions.qid=answers.answ_question WHERE questions.$column='[::mysql::escape $mysql_checkq $id]'"]
-	set row [::mysql::fetch $query1]
-	# If we didn't get any response, close the connection, tell the user and quit
-	if {$row == ""} {
-		::mysql::endquery $query1
-		::mysql::close $mysql_checkq
+	set numrows [::mysql::sel $::mysql_quiz "SELECT questions.qid, questions.ques_category, questions.ques_question, questions.ques_tempid, answers.answ_answer FROM questions LEFT JOIN answers ON questions.qid=answers.answ_question WHERE questions.$column='[::mysql::escape $::mysql_quiz $id]'"]
+	set row [::mysql::fetch $::mysql_quiz]
+	# If we didn't get any response, tell the user and quit
+	if {$numrows == 0} {
 		putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Ingen fråga med det IDt."
 		return
 	}
@@ -1179,20 +1060,17 @@ proc frogesport:checkdelq { nick arg {action "check"} } {
 	set category [lindex $row 1]
 	set question [lindex $row 2]
 	set tempid [lindex $row 3]
-	# Return the pointer to 0
-	::mysql::seek $query1 0
-	# Get all answers
-	while {[set row [::mysql::fetch $query1]] != ""} {
+	set answers [lindex $row 4]
+	# Get the rest of the answers
+	while {[set row [::mysql::fetch $::mysql_quiz]] != ""} {
 		lappend answers [lindex $row 4]
 	}
-	::mysql::endquery $query1
 	# Check if we're deleting the question
 	set deletemess ""
 	if {$action == "del"} {
-		::mysql::exec $mysql_checkq "DELETE FROM questions WHERE qid=$qid"
+		::mysql::exec $::mysql_quiz "DELETE FROM questions WHERE qid=$qid"
 		set deletemess "Du tog bort den här frågan:"
 	}
-	::mysql::close $mysql_checkq
 	# Output the question and the answers
 	putserv "PRIVMSG $nick :\003${::color_text},${::color_background}$deletemess\
 		Permanent ID: \003${::color_statsnumber}$qid\003${::color_text}\
@@ -1219,19 +1097,15 @@ proc frogesport:msgaddq { nick host hand arg } {
 		putserv "PRIVMSG $nick :\003${::color_text},${::color_background}addq <kategori>|<Fråga>|<svar>\[|svar\]... - Lägg till en fråga. Kategori, fråga och svar är avskilda med | (pipe). Det finns ingen gräns på antalet svar."
 		return
 	}
-	# Connect to the database
-	set mysql_addq [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_addq "SET NAMES 'latin1'"
 	# Add the question
-	::mysql::exec $mysql_addq "INSERT INTO questions (ques_category, ques_question) VALUES('[::mysql::escape $mysql_addq $category]', '[::mysql::escape $mysql_addq $question]')"
+	::mysql::exec $::mysql_quiz "INSERT INTO questions (ques_category, ques_question) VALUES('[::mysql::escape $::mysql_quiz $category]', '[::mysql::escape $::mysql_quiz $question]')"
 	# Get the ID of the question we just entered
-	set qid [::mysql::insertid $mysql_addq]
+	set qid [::mysql::insertid $::mysql_quiz]
 	# Generate and submit the SQL query for the answers
 	foreach answer $answers {
-		lappend sql_answers "('$qid', '[::mysql::escape $mysql_addq $answer]')" 
+		lappend sql_answers "('$qid', '[::mysql::escape $::mysql_quiz $answer]')" 
 	}
-	::mysql::exec $mysql_addq "INSERT INTO answers (answ_question, answ_answer) VALUES[join $sql_answers ", "]"
-	::mysql::close $mysql_addq
+	::mysql::exec $::mysql_quiz "INSERT INTO answers (answ_question, answ_answer) VALUES[join $sql_answers ", "]"
 	putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Fråga med ID \003${::color_statsnumber}$qid\003${::color_text} tillagd!"
 }
 
@@ -1260,15 +1134,10 @@ proc frogesport:msgmodq { nick host hand arg } {
 		set action [lindex [split $arg] 1]
 		set value [join [lrange [split $arg] 2 end]]
 	}
-	set mysql_modq [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_modq "SET NAMES 'latin1'"
 	# Check if there is any question
-	set query1 [::mysql::query $mysql_modq "SELECT qid, ques_tempid FROM questions WHERE $column='[::mysql::escape $mysql_modq $id]'"]
-	set row [::mysql::fetch $query1]
-	::mysql::endquery $query1
-	# If we didn't get any response, close the connection, tell the user and quit
+	set row [lindex [::mysql::sel $::mysql_quiz "SELECT qid, ques_tempid FROM questions WHERE $column='[::mysql::escape $::mysql_quiz $id]'" -list] 0]
+	# If we didn't get any response, tell the user and quit
 	if {$row == ""} {
-		::mysql::close $mysql_modq
 		putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen fråga med det IDt."
 		return
 	}
@@ -1279,15 +1148,13 @@ proc frogesport:msgmodq { nick host hand arg } {
 	switch -glob $action {
 		"kategori" -
 		"category" {
-			::mysql::exec $mysql_modq "UPDATE questions SET ques_category='[::mysql::escape $mysql_modq $value]' WHERE qid='$qid'"
+			::mysql::exec $::mysql_quiz "UPDATE questions SET ques_category='[::mysql::escape $::mysql_quiz $value]' WHERE qid='$qid'"
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Kategorin för frågan med permanent ID \003${::color_statsnumber}$qid\003${::color_text} och temporärt ID \003${::color_statsnumber}$tempid\003${::color_text} satt till \003${::color_statsnumber}$value"
-			::mysql::close $mysql_modq
 		}
 		"fr?ga" -
 		"question" {
-			::mysql::exec $mysql_modq "UPDATE questions SET ques_question='[::mysql::escape $mysql_modq $value]' WHERE qid='$qid'"
+			::mysql::exec $::mysql_quiz "UPDATE questions SET ques_question='[::mysql::escape $::mysql_quiz $value]' WHERE qid='$qid'"
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Frågan med permanent ID \003${::color_statsnumber}$qid\003${::color_text} och temporärt ID \003${::color_statsnumber}$tempid\003${::color_text} satt till \003${::color_statsnumber}$value"
-			::mysql::close $mysql_modq
 		}
 		"svar" -
 		"answer" {
@@ -1296,24 +1163,21 @@ proc frogesport:msgmodq { nick host hand arg } {
 			# Check if the answers are correctly put
 			if {[regexp "\\|\\|" $arg]} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}modq <id> \[perm\] answer <svar>\[|svar\]... - Sätt svaren för en fråga. Svar är avskilda med | (pipe)."
-				::mysql::close $mysql_modq
 				return
 			}
 			# Split the answers at the pipes
 			set answers [split $value "|"]
 			# Create the SQL query
 			foreach answer $answers {
-				lappend sql_answers "('$qid', '[::mysql::escape $mysql_modq $answer]')"
+				lappend sql_answers "('$qid', '[::mysql::escape $::mysql_quiz $answer]')"
 			}
-			::mysql::exec $mysql_modq "DELETE FROM answers WHERE answ_question='$qid'"
-			::mysql::exec $mysql_modq "INSERT INTO answers (answ_question, answ_answer) VALUES[join $sql_answers ", "]"
+			::mysql::exec $::mysql_quiz "DELETE FROM answers WHERE answ_question='$qid'"
+			::mysql::exec $::mysql_quiz "INSERT INTO answers (answ_question, answ_answer) VALUES[join $sql_answers ", "]"
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Svaren till frågan med permanent ID \003${::color_statsnumber}$qid\003${::color_text} och temporärt ID \003${::color_statsnumber}$tempid\003${::color_text} satt till \003${::color_statsnumber}[join $answers "\003${::color_text},${::color_background}, \003${::color_statsnumber}"]"
-			::mysql::close $mysql_modq
 		}
 		default {
 			# If the user didn't supply a valid action, tell it how the command should be run
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}modq <id> \[perm\] <kategori|fråga|svar> <nytt värde> - Modifiera en fråga. Du måste ange ID, om ordet \"perm\" finns med används frågans permanenta ID istället för det temporära, vad som ska ändras och vad det ska ersättas med. Flera svar är skilda med | (pipe)."
-			::mysql::close $mysql_modq
 			return
 		}
 	}
@@ -1381,15 +1245,8 @@ proc frogesport:msgmodu { nick host hand arg } {
 		}
 		"nick" {
 			# Check if the old and new nick exists
-			set mysql_modu [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-			::mysql::exec $mysql_modu "SET NAMES 'latin1'"
-			set sql_value [::mysql::escape $mysql_modu $value]
-			set sql_user [::mysql::escape $mysql_modu $user]
-			::mysql::sel $mysql_modu "SELECT COUNT(uid) FROM users WHERE user_nick='$sql_value'"
-			set numvalue [lindex [::mysql::fetch $mysql_modu] 0]
-			::mysql::sel $mysql_modu "SELECT COUNT(uid) FROM users WHERE user_nick='$sql_user'"
-			set numusers [lindex [::mysql::fetch $mysql_modu] 0]
-			::mysql::close $mysql_modu
+			set numvalue [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(uid) FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $value]'" -list] 0]
+			set numusers [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(uid) FROM users WHERE user_nick='[::mysql::escape $::mysql_quiz $user]'" -list] 0]
 			if {$numusers == 0} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen användare med det nicket!"
 				return
@@ -1421,13 +1278,8 @@ proc frogesport:msgmodu { nick host hand arg } {
 				return
 			}
 			# We have to check if the class is supposed to be updated too, which is done easiest with MySQL.
-			set mysql_modu [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-			::mysql::exec $mysql_modu "SET NAMES 'latin1'"
-			::mysql::sel $mysql_modu "SELECT * FROM classes WHERE clas_points<='$value' ORDER BY clas_points DESC LIMIT 1"
-			set newclass [lindex [::mysql::fetch $mysql_modu] 0]
-			set sql_user [::mysql::escape $mysql_modu $user]
-			::mysql::exec $mysql_modu "UPDATE users SET user_class='$newclass' WHERE user_nick='$sql_user' AND user_class!=0"
-			::mysql::close $mysql_modu
+			set newclass [lindex [::mysql::sel $::mysql_quiz "SELECT * FROM classes WHERE clas_points<='$value' ORDER BY clas_points DESC LIMIT 1" -list] 0]
+			::mysql::exec $::mysql_quiz "UPDATE users SET user_class='$newclass' WHERE user_nick='[::mysql::escape $::mysql_quiz $user]' AND user_class!=0"
 			set column "user_points_total"
 			set newvalue $value
 			set message "\003${::color_text},${::color_background}Användaren \003${::color_nick}$user\003${::color_text}s totala poäng ändrad till \003${::color_statsnumber}$value"
@@ -1435,7 +1287,7 @@ proc frogesport:msgmodu { nick host hand arg } {
 		"time" -
 		"tid" {
 			# Check that the time is a double (regex /\d+\.\d+/) or an integer
-			set value [string map "," "." $value]
+			set value [string map {"," "."} $value]
 			if {![string is double -strict $value] && ![string is integer -strict $value]} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Tiden måste vara ett decimal- eller heltal."
 				return
@@ -1477,7 +1329,6 @@ proc frogesport:msgmodu { nick host hand arg } {
 					return
 				}
 			}
-			# Check if the class number is a registered class
 			set column "user_class"
 			set newvalue $value
 			set message "\003${::color_text},${::color_background}Användaren \003${::color_nick}$user\003${::color_text}s klass ändrad till \003${::color_statsnumber}$value"
@@ -1506,33 +1357,25 @@ proc frogesport:msgmodu { nick host hand arg } {
 		}
 		"transfer" {
 			# Get info about the two users
-			set mysql_modu [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-			::mysql::exec $mysql_modu "SET NAMES 'latin1'"
-			set sql_user1 [::mysql::escape $mysql_modu $user]
-			set sql_user2 [::mysql::escape $mysql_modu $value]
-			::mysql::sel $mysql_modu "SELECT COUNT(`uid`), `user_points_season`, `user_points_total`, `user_time`, `user_inarow`, `user_mana`, `user_class`, `user_lastactive` FROM users WHERE `user_nick`='$sql_user1'"
-			set user1 [::mysql::fetch $mysql_modu]
-			::mysql::sel $mysql_modu "SELECT COUNT(`uid`), `user_points_season`, `user_points_total`, `user_time`, `user_inarow`, `user_mana`, `user_class`, `user_lastactive` FROM users WHERE `user_nick`='$sql_user2'"
-			set user2 [::mysql::fetch $mysql_modu]
+			set user1 [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(`uid`), `user_points_season`, `user_points_total`, `user_time`, `user_inarow`, `user_mana`, `user_class`, `user_lastactive` FROM users WHERE `user_nick`='[::mysql::escape $::mysql_quiz $user]'" -list] 0]
+			set user2 [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(`uid`), `user_points_season`, `user_points_total`, `user_time`, `user_inarow`, `user_mana`, `user_class`, `user_lastactive` FROM users WHERE `user_nick`='[::mysql::escape $::mysql_quiz $value]'" -list] 0]
 			# Check if they exist
 			if {[lindex $user1 0] == 0} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen användare med nicket $user!"
-				::mysql::close $mysql_modu
 				return
 			}
 			if {[lindex $user2 0] == 0} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen användare med nicket $value!"
-				::mysql::close $mysql_modu
 				return
 			}
 			set newtotal [expr [lindex $user1 2]+[lindex $user2 2]]
 			# If one of the nicks' class is 0, keep it
 			if {[lindex $user1 6] == "0" || [lindex $user2 6] == "0"} {
-				::mysql::sel $mysql_modu "SELECT `cid`, `clas_maxmana` FROM `classes` WHERE `cid`='0'"
-				set newclass [::mysql::fetch $mysql_modu]
+				::mysql::sel $::mysql_quiz "SELECT `cid`, `clas_maxmana` FROM `classes` WHERE `cid`='0'"
+				set newclass [::mysql::fetch $::mysql_quiz]
 			} else {
-				::mysql::sel $mysql_modu "SELECT `cid`, `clas_maxmana` FROM `classes` WHERE `clas_points`<='$newtotal' ORDER BY `clas_points` DESC LIMIT 1"
-				set newclass [::mysql::fetch $mysql_modu]
+				::mysql::sel $::mysql_quiz "SELECT `cid`, `clas_maxmana` FROM `classes` WHERE `clas_points`<='$newtotal' ORDER BY `clas_points` DESC LIMIT 1"
+				set newclass [::mysql::fetch $::mysql_quiz]
 			}
 			set newmana [expr [lindex $user1 5]+[lindex $user2 5]]
 			set newvalues "`user_points_season`=[lindex $user1 1]+[lindex $user2 1], `user_points_total`=$newtotal, `user_class`=[lindex $newclass 0]"
@@ -1550,10 +1393,8 @@ proc frogesport:msgmodu { nick host hand arg } {
 			if {[lindex $user1 7] > [lindex $user2 7]} {
 				append newvalues ", `user_lastactive`='[lindex $user1 7]'"
 			}
-			putlog $newvalues
-			::mysql::exec $mysql_modu "UPDATE `users` SET $newvalues WHERE `user_nick`='$sql_user2'"
-			::mysql::exec $mysql_modu "DELETE FROM `users` WHERE `user_nick`='$sql_user1'"
-			::mysql::close $mysql_modu
+			::mysql::exec $::mysql_quiz "UPDATE `users` SET $newvalues WHERE `user_nick`='[::mysql::escape $::mysql_quiz $value]'"
+			::mysql::exec $::mysql_quiz "DELETE FROM `users` WHERE `user_nick`='[::mysql::escape $::mysql_quiz $user]'"
 			putserv "PRIVMSG $nick :\003${::color_nick},${::color_background}$user\003${::color_text}'s poäng, snabbaste tid, streak, mana och senast aktiva tid flyttad till \003${::color_nick}$value\003${::color_text}! Klassen är även uppdaterad."
 			return
 		}
@@ -1562,13 +1403,8 @@ proc frogesport:msgmodu { nick host hand arg } {
 			return
 		}
 	}
-	# Connect to the database and change stuff
-	set mysql_modu [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_modu "SET NAMES 'latin1'"
-	set sql_user [::mysql::escape $mysql_modu $user]
-	set sql_newvalue [::mysql::escape $mysql_modu $newvalue]
-	set numupdated [::mysql::exec $mysql_modu "UPDATE users SET $column='$sql_newvalue' WHERE user_nick='$sql_user'"]
-	::mysql::close $mysql_modu
+	# Change stuff
+	set numupdated [::mysql::exec $::mysql_quiz "UPDATE users SET $column='[::mysql::escape $::mysql_quiz $newvalue]' WHERE user_nick='[::mysql::escape $::mysql_quiz $user]'"]
 	if {$numupdated} {
 		putserv "PRIVMSG $nick :$message"
 	} else {
@@ -1606,26 +1442,16 @@ proc frogesport:msgreports { nick host hand arg } {
 		putserv "PRIVMSG $nick :\003${::color_text},${::color_background}rapporter <visa|radera> \[rapportens id\] - Visar och tar bort rapporter."
 		return
 	}
-	set mysql_reports [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-	::mysql::exec $mysql_reports "SET NAMES 'latin1'"
 	switch $action {
 		"visa" -
 		"show" {
-			set query1 [::mysql::query $mysql_reports "SELECT reports.rid, reports.repo_qid, reports.repo_comment, reports.repo_user, questions.ques_category,\
-				questions.ques_question FROM reports LEFT JOIN questions ON reports.repo_qid=questions.qid ORDER BY reports.repo_qid DESC LIMIT [::mysql::escape $mysql_reports $::reports_show]"]
-			set query2 [::mysql::query $mysql_reports "SELECT COUNT(rid) FROM reports"]
-			set numreports [lindex [::mysql::fetch $query2] 0]
-			::mysql::endquery $query2
-			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}De $::reports_show senaste rapporterna av totalt $numreports:"
-			while {[set row [::mysql::fetch $query1]] != ""} {
-				# We have to use a query in a loop here, we can't join the answer table and get the limit correctly otherwise
-				set query2 [::mysql::query $mysql_reports "SELECT answ_answer FROM answers WHERE answ_question=[::mysql::escape $mysql_reports [lindex $row 1]]"]
-				# Get all the answers
-				set answers ""
-				while {[set row2 [::mysql::fetch $query2]] != ""} {
-					lappend answers [lindex $row2 0]
-				}
-				::mysql::endquery $query2
+			set numreports [lindex [::mysql::sel $::mysql_quiz "SELECT COUNT(rid) FROM reports" -list] 0]
+			set allrows [::mysql::sel $::mysql_quiz "SELECT reports.rid, reports.repo_qid, reports.repo_comment, reports.repo_user, questions.ques_category,\
+				questions.ques_question FROM reports LEFT JOIN questions ON reports.repo_qid=questions.qid ORDER BY reports.repo_qid DESC LIMIT [::mysql::escape $::mysql_quiz $::reports_show]" -list]
+			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}De $::reports_show översta rapporterna av totalt $numreports:"
+			foreach row $allrows {
+				# Get all the answers. We have to use a query in a loop here, we can't join the answer table and get the limit correctly otherwise
+				set answers [::mysql::sel $::mysql_quiz "SELECT answ_answer FROM answers WHERE answ_question=[::mysql::escape $::mysql_quiz [lindex $row 1]]" -flatlist]
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Rapportens ID: \003${::color_statsnumber}[lindex $row 0]\003${::color_text}\
 					nick: \003${::color_nick}[lindex $row 3]\003${::color_text}\
 					Frågans permanenta ID: \003${::color_statsnumber}[lindex $row 1]\003${::color_text}\
@@ -1634,7 +1460,6 @@ proc frogesport:msgreports { nick host hand arg } {
 					Fråga: \003${::color_answer}[lindex $row 5]\003${::color_text}\
 					Svar: \003${::color_answer}[join $answers "\003${::color_text},${::color_background}, \003${::color_answer}"]\003${::color_text}."
 			}
-			::mysql::endquery $query1
 		}
 		"radera" -
 		"del" -
@@ -1642,25 +1467,21 @@ proc frogesport:msgreports { nick host hand arg } {
 			# Check if the supplied id is numeric
 			if {![regexp "^\[0-9\]+\$" $value]} {
 				putserv "PRIVMSG $nick :\003${::color_statsnumber},${::color_background}$value\003${::color_text} är inte ett giltigt rapportID."
-				::mysql::close $mysql_reports
 				return
 			}
-			set count [::mysql::sel $mysql_reports "SELECT COUNT(rid) FROM reports WHERE rid='[::mysql::escape $mysql_reports $value]'" -list]
+			set count [::mysql::sel $::mysql_quiz "SELECT COUNT(rid) FROM reports WHERE rid='[::mysql::escape $::mysql_quiz $value]'" -list]
 			if {![lindex $count 0]} {
 				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Det finns ingen rapport med ID \003${::color_statsnumber}$value\003${::color_text}."
-				::mysql::close $mysql_reports
 				return
 			}
-			::mysql::exec $mysql_reports "DELETE FROM reports WHERE rid='[::mysql::escape $mysql_reports $value]'"
+			::mysql::exec $::mysql_quiz "DELETE FROM reports WHERE rid='[::mysql::escape $::mysql_quiz $value]'"
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Rapporten med ID \003${::color_statsnumber}$value\003${::color_text} borttagen!"
 		}
 		default {
 			putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Visar och tar bort rapporter. Användning: rapporter visa, rapporter radera <id>"
-			::mysql::close $mysql_reports
 			return
 		}
 	}
-	::mysql::close $mysql_reports
 }
 
 proc frogesport:msgnewseason { nick host hand arg } {
@@ -1673,26 +1494,18 @@ proc frogesport:msgnewseason { nick host hand arg } {
 		set arg "help"
 	}
 	switch -glob -- $arg $::season_code {
-			# Check that the bot isn't running. ## We don't need this, the query is pretty quick. Pausing is sufficient.
-#			if {$::is_running} {
-#				putserv "PRIVMSG $nick :\003${::color_text},${::color_background}Du måste stoppa quizen först."
-#				return
-#			}
 			# The user privided the correct password, clear the after timeout and tell the user
 			after cancel $::season_timeout
 			putnow "PRIVMSG $nick :\003${::color_text},${::color_background}Rätt lösenord, kopiering och rensning påbörjad..."
 			# Copy the user table and clear the old one's season points
-			set mysql_newseason [::mysql::connect -db $::trivia_mysql_dbname -host $::trivia_mysql_host -user $::trivia_mysql_user -password $::trivia_mysql_pass]
-			::mysql::exec $mysql_newseason "SET NAMES 'latin1'"
 			# If there is an old table lying around, delete it and create a new one
-			::mysql::exec $mysql_newseason "DROP TABLE IF EXISTS users_last_season"
-			::mysql::exec $mysql_newseason "CREATE TABLE users_last_season LIKE users"
+			::mysql::exec $::mysql_quiz "DROP TABLE IF EXISTS users_last_season"
+			::mysql::exec $::mysql_quiz "CREATE TABLE users_last_season LIKE users"
 			# Copy the users
-			::mysql::exec $mysql_newseason "INSERT INTO users_last_season SELECT * FROM users"
+			::mysql::exec $::mysql_quiz "INSERT INTO users_last_season SELECT * FROM users"
 			# Clear the season stats in the old one
-			::mysql::exec $mysql_newseason "UPDATE users SET user_points_season=0"
-			::mysql::close $mysql_newseason
-			putnow "PRIVMSG $nick :\003${::color_text},${::color_background}Klar! Den gamla tabellen är nu sparad i users_last_season och en ny säsong är påbörjad.."
+			::mysql::exec $::mysql_quiz "UPDATE users SET user_points_season=0"
+			putnow "PRIVMSG $nick :\003${::color_text},${::color_background}Klar! Den gamla tabellen är nu sparad i users_last_season och en ny säsong är påbörjad."
 		}\
 		"I am sure" -\
 		"Jag ?r s?ker" {

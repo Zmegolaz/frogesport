@@ -1,3 +1,9 @@
+Version 1.2.2 - 2012-11-16
+	Features
+ * The close answers feature now applies to questions where nobody answered correctly too.
+	Changes
+ * A lot of SQL optimizations to speed up everything and use less memory.
+ * Changed charset in the database tables.
 Version 1.2.1 - 2012-11-15
 	Features
  * Added a "close answers" to show people how close they were to winning the question.
