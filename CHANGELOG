@@ -1,3 +1,11 @@
+Version 1.2.3 - 2012-11-17
+	Changes
+ * Put everything in a namespace to better separate variable and procedure names from other code.
+	Bug fixes
+ * Sometimes (after a couple of days) the connection to the database was dropped, disabling everything but the questions themselves.
+ * The close_behind time check didn't set the correct value.
+ * When someone gaind a rank the bot stopped.
+ * !top10 and !hof didn't work.
 Version 1.2.2.1 - 2012-11-16
 	Bug fixes
  * Fixed a bug where checkq output the answers in an incorrect way.

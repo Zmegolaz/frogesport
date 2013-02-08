@@ -25,82 +25,82 @@
 ############################################################
 
 # Edit these to match your MySQL settings
-set ::trivia_mysql_user "frogesport"
-set ::trivia_mysql_pass "secret"
-set ::trivia_mysql_host "localhost"
-set ::trivia_mysql_dbname "frogesport"
+variable mysql_user "frogesport"
+variable mysql_pass "secret"
+variable mysql_host "localhost"
+variable mysql_dbname "frogesport"
 
 # Channel the bot is used in, this has to be correct to be able to start the quiz
-set ::running_chan "#channel"
+variable running_chan "#channel"
 
 # Set authentication method
-set ::auth_method "2"
+variable auth_method "2"
 # 1: Check if the user is op in the running channel and if the user is class 0 in the database
 # 2: Check if the user is op in the running channel and is in the configured list of admins
 # 3: Check if the user is op in the admin channel
 
-# Bot admins, separated by space. Only needed if ::auth_method is set to 2
-set ::admins "yournick"
-# Channel with the bot admins. Only needed if ::auth_method is set to 3
-set ::admin_chan "#channel-admin"
+# Bot admins, separated by space. Only needed if auth_method is set to 2
+variable admins "your-nick"
+# Channel with the bot admins. Only needed if auth_method is set to 3
+variable admin_chan "#channel-admin"
 
 # Time between questions, in seconds
-set ::s_question_time "10"
+variable s_question_time "10"
 # Time until clue is given, in seconds
-set ::s_clue_time "15"
+variable s_clue_time "15"
 # Time users have to answer the question, in seconds
-set ::s_time_answer "30"
+variable s_time_answer "30"
 # The bot may tell people how long time behind the winner they were, for how long should it collect nicks?
-# Enter in seconds, and has to be lower than ::s_question_time. Set to 0 to disable this feature.
-set ::close_behind "5"
+# Enter in seconds, and has to be lower than s_question_time. Set to 0 to disable this feature.
+variable s_close_behind "3"
 
 # How many percent of each word in the answer the clue should display, number of letters are rounded up
-set ::clue_percent "30"
+variable clue_percent "30"
 
 # Set this to 1 if the bot should give the answers if no user answered correctly
-set ::give_answer "1"
+variable give_answer "0"
 
 # At which level should users be allowed to cast spells?
-set ::spell_level "5"
+variable spell_level "5"
 # Cost of the spells
-set ::cost_steal "50"
-set ::cost_give "50"
-set ::cost_answer "50"
-set ::cost_setvoice "10"
-set ::cost_prevanswer "20"
+variable cost_steal "50"
+variable cost_give "50"
+variable cost_answer "50"
+variable cost_setvoice "10"
+variable cost_prevanswer "20"
 # How many points should be stolen or given?
-set ::steal_points "5"
-set ::give_points "5"
+variable steal_points "5"
+variable give_points "5"
 # How many points should !punish and !reward take/give?
-set ::reward_points "5"
-set ::punish_points "5"
+variable reward_points "5"
+variable punish_points "5"
 
 # How many reports nad recommended questions should be shown in PM?
 # Be careful, to high and the bot'll be too busy pasting reports and won't answer other commands
 # A web interface to check all is preferred
-set ::reports_show "7"
-set ::recommend_show "7"
+variable reports_show "7"
+variable recommend_show "7"
 
 # How many seconds has to pass between each ping command?
-set ::s_pinginterval "10"
+variable s_pinginterval "10"
 
 # The bot can send periodic messages to the channel, for example to tell people why it is down. What should that message be?
-set ::periodic_message "Frogesport is down because of database maintenance."
+variable periodic_message "Frogesport is down because of database maintenance."
 # How often? In minutes.
-set ::s_periodic_message "15"
+variable s_periodic_message "1"
 
 # Text color:
-set ::color_text "00"
+variable color_text "00"
 # Text background color
-set ::color_background "01"
+variable color_background "01"
 # Color of users nicks
-set ::color_nick "09"
+variable color_nick "09"
 # Color of classes
-set ::color_class "08"
+variable color_class "08"
 # Color of answers
-set ::color_answer "04"
+variable color_answer "04"
 # Color of numbers in stats
-set ::color_statsnumber "04"
+variable color_statsnumber "04"
 
 # Colors:
 #00 white
@@ -119,3 +119,4 @@ set ::color_statsnumber "04"
 #13 pink (light purple) (fuchsia)
 #14 grey
 #15 light grey (silver)
+
