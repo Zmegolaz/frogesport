@@ -1,3 +1,6 @@
+Version 1.2.3.1 - 2013-02-23
+	Bug fixes
+ * When deleting a question, the answers and reports related to it were not deleted.
 Version 1.2.3 - 2012-11-17
 	Changes
  * Put everything in a namespace to better separate variable and procedure names from other code.

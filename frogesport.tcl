@@ -76,7 +76,7 @@ bind msg * "recommend" ::frogesport::msgrecommendq
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.2.3"
+	variable version "1.2.3.1"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -1079,6 +1079,8 @@ namespace eval ::frogesport {
 		set deletemess ""
 		if {$action == "del"} {
 			::mysql::exec $::frogesport::mysql_conn "DELETE FROM questions WHERE qid=$qid"
+			::mysql::exec $::frogesport::mysql_conn "DELETE FROM answers WHERE answ_question=$qid"
+			::mysql::exec $::frogesport::mysql_conn "DELETE FROM reports WHERE repo_qid=$qid"
 			set deletemess "Du tog bort den här frågan:"
 		}
 		# Output the question and the answers
