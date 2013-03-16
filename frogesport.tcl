@@ -76,7 +76,7 @@ bind msg * "recommend" ::frogesport::msgrecommendq
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.2.3.1"
+	variable version "1.2.3.2"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -88,12 +88,8 @@ namespace eval ::frogesport {
 
 	# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection, it sometimes disappears
 	proc checkdb { } {
-		if {[info exist ::frogesport::mysql_conn] && [::mysql::state $::frogesport::mysql_conn -numeric] < 3} {
-			::mysql::close $::frogesport::mysql_conn
-		}
-		if {![info exist ::frogesport::mysql_conn] || [::mysql::state $::frogesport::mysql_conn -numeric] < 3} {
-			variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass]
-		}
+		::mysql::close $::frogesport::mysql_conn
+		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass]
 	}
 	checkdb
 
