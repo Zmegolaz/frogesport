@@ -76,7 +76,7 @@ bind msg * "recommend" ::frogesport::msgrecommendq
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.2.3.2"
+	variable version "1.3"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -88,7 +88,9 @@ namespace eval ::frogesport {
 
 	# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection, it sometimes disappears
 	proc checkdb { } {
-		::mysql::close $::frogesport::mysql_conn
+		if {[info exists ::frogesport::mysql_conn]} {
+			::mysql::close $::frogesport::mysql_conn
+		}
 		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass]
 	}
 	checkdb
@@ -1454,10 +1456,14 @@ namespace eval ::frogesport {
 			"visa" -
 			"show" {
 				set numreports [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT COUNT(rid) FROM reports" -list] 0]
+				# Select rows that has not been viewed in a long time (or at all.)
 				set allrows [::mysql::sel $::frogesport::mysql_conn "SELECT reports.rid, reports.repo_qid, reports.repo_comment, reports.repo_user, questions.ques_category,\
-					questions.ques_question FROM reports LEFT JOIN questions ON reports.repo_qid=questions.qid ORDER BY reports.repo_qid DESC LIMIT [::mysql::escape $::frogesport::mysql_conn $::frogesport::reports_show]" -list]
-				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}De $::frogesport::reports_show översta rapporterna av totalt $numreports:"
+					questions.ques_question FROM reports LEFT JOIN questions ON reports.repo_qid=questions.qid ORDER BY reports.repo_lastshow ASC, reports.repo_qid DESC LIMIT [::mysql::escape $::frogesport::mysql_conn $::frogesport::reports_show]" -list]
+				
+				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}$::frogesport::reports_show rapporter av totalt $numreports:"
 				foreach row $allrows {
+					# Remember the IDs of all show reports
+					lappend allids [lindex $row 0]
 					# Get all the answers. We have to use a query in a loop here, we can't join the answer table and get the limit correctly otherwise
 					set answers [::mysql::sel $::frogesport::mysql_conn "SELECT answ_answer FROM answers WHERE answ_question=[::mysql::escape $::frogesport::mysql_conn [lindex $row 1]]" -flatlist]
 					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Rapportens ID: \003${::frogesport::color_statsnumber}[lindex $row 0]\003${::frogesport::color_text}\
@@ -1468,6 +1474,7 @@ namespace eval ::frogesport {
 						Fråga: \003${::frogesport::color_answer}[lindex $row 5]\003${::frogesport::color_text}\
 						Svar: \003${::frogesport::color_answer}[join $answers "\003${::frogesport::color_text},${::frogesport::color_background}, \003${::frogesport::color_answer}"]\003${::frogesport::color_text}."
 				}
+				::mysql::exec $::frogesport::mysql_conn "UPDATE reports SET repo_lastshow=UNIX_TIMESTAMP(NOW()) WHERE rid IN ([join $allids ", "])"
 			}
 			"radera" -
 			"del" -

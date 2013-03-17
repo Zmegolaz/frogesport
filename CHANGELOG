@@ -1,3 +1,8 @@
+Version 1.3 - 3013-03-17
+	Features
+ * The bot now saves the time each report was shown to an admin and prefers to show others the next time. This makes it possible for multiple admins to correct reports at the same time, without disturbing eachother. Note that the database structure has been changed!
+	Bug fixes
+ * The last change regardin MySQL connections caused the bot to fail to start.
 Version 1.2.3.2 - 2013-03-16
 	Bug fixes
  * Changed the database reconnect thingie on rehash, if the SQL server went away it didn't reconnect as it should.

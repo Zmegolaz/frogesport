@@ -8,7 +8,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8 */;
 
 --
--- Database: `frogesport-dev`
+-- Database: `frogesport`
 --
 
 -- --------------------------------------------------------
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `answers` (
   `answ_answer` varchar(256) NOT NULL,
   PRIMARY KEY (`aid`),
   KEY `answ_question` (`answ_question`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=52682 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 -- --------------------------------------------------------
 
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `classes` (
   `clas_comment` varchar(256) NOT NULL,
   PRIMARY KEY (`cid`),
   UNIQUE KEY `clas_points` (`clas_points`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=12 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 -- --------------------------------------------------------
 
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS `prizes` (
   `priz_inarow` varchar(16) NOT NULL,
   `priz_prize` varchar(256) NOT NULL,
   PRIMARY KEY (`pid`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=48 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 -- --------------------------------------------------------
 
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `questions` (
   `ques_tempid` int(16) DEFAULT NULL,
   PRIMARY KEY (`qid`),
   KEY `ques_tempid` (`ques_tempid`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=22149 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 -- --------------------------------------------------------
 
@@ -119,8 +119,10 @@ CREATE TABLE IF NOT EXISTS `reports` (
   `repo_qid` int(16) NOT NULL,
   `repo_comment` varchar(512) NOT NULL,
   `repo_user` varchar(128) NOT NULL,
-  PRIMARY KEY (`rid`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1816 ;
+  `repo_lastshow` int(11) NOT NULL,
+  PRIMARY KEY (`rid`),
+  KEY `repo_lastshow` (`repo_lastshow`)
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 -- --------------------------------------------------------
 
@@ -141,7 +143,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `user_customclass` varchar(256) NOT NULL,
   PRIMARY KEY (`uid`),
   KEY `user_nick` (`user_nick`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1704 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 -- --------------------------------------------------------
 
@@ -162,7 +164,7 @@ CREATE TABLE IF NOT EXISTS `users_last_season` (
   `user_customclass` varchar(256) NOT NULL,
   PRIMARY KEY (`uid`),
   KEY `user_nick` (`user_nick`)
-) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1704 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
