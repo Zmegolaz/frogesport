@@ -3,7 +3,7 @@
 ###########################################################################
 ###
 #
-#    Copyright 2011-2012 Zmegolaz <zmegolaz@kaizoku.se>
+#    Copyright 2011-2013 Zmegolaz <zmegolaz@kaizoku.se>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -76,7 +76,7 @@ bind msg * "recommend" ::frogesport::msgrecommendq
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.3"
+	variable version "1.3.1"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -91,7 +91,7 @@ namespace eval ::frogesport {
 		if {[info exists ::frogesport::mysql_conn]} {
 			::mysql::close $::frogesport::mysql_conn
 		}
-		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass]
+		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "iso8859-1"]
 	}
 	checkdb
 
@@ -400,7 +400,7 @@ namespace eval ::frogesport {
 					set curclass " \[[lindex $curuser 9]\]"
 				}
 				# Tell everyone the time is up
-				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass \003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. I rad: [lindex $::frogesport::currentcorrect 1]. Nuvarande poäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
+				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass \003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
 				if {[info exists updateclass] && $updateclass != ""} {
 					putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick\003${::frogesport::color_text} har gått upp till level [lindex $newclass 0] och är nu rankad som [lindex $newclass 2]! [lindex $newclass 4]"
 				}
@@ -547,7 +547,7 @@ namespace eval ::frogesport {
 		putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Statistik för \003${::frogesport::color_nick}[lindex $curuser 1]\003${::frogesport::color_text}:\
 			Snabbaste tid: \003${::frogesport::color_statsnumber}[lindex $curuser 4]\003${::frogesport::color_text} sekunder.\
 			Bästa streak: \003${::frogesport::color_statsnumber}[lindex $curuser 5]\003${::frogesport::color_text}.\
-			Nuvarande poäng: \003${::frogesport::color_statsnumber}[lindex $curuser 2]\003${::frogesport::color_text}.\
+			Säsongspoäng: \003${::frogesport::color_statsnumber}[lindex $curuser 2]\003${::frogesport::color_text}.\
 			Total poäng: \003${::frogesport::color_statsnumber}[lindex $curuser 3]\003${::frogesport::color_text}.\
 			Klass: \003${::frogesport::color_class}$curclass\003${::frogesport::color_text}.\
 			Level: \003${::frogesport::color_statsnumber}[lindex $curuser 7]\003${::frogesport::color_text}.\
@@ -934,7 +934,7 @@ namespace eval ::frogesport {
 			set column "total"
 		}
 		# Set the nicks and count them
-		switch [set numnicks [llength [set nicks [split $arg]]]] {
+		switch [set numnicks [llength [set nicks $arg]]] {
 			"0" {
 				# If there's no argument, tell the user how to use this command
 				putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}!jämför <nick> \[nick\]... - Jämför poäng mellan två eller fler användare. Anges bara ett nick jämförs den personens poäng med din."
@@ -1460,7 +1460,7 @@ namespace eval ::frogesport {
 				set allrows [::mysql::sel $::frogesport::mysql_conn "SELECT reports.rid, reports.repo_qid, reports.repo_comment, reports.repo_user, questions.ques_category,\
 					questions.ques_question FROM reports LEFT JOIN questions ON reports.repo_qid=questions.qid ORDER BY reports.repo_lastshow ASC, reports.repo_qid DESC LIMIT [::mysql::escape $::frogesport::mysql_conn $::frogesport::reports_show]" -list]
 				
-				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}$::frogesport::reports_show rapporter av totalt $numreports:"
+				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}De $::frogesport::reports_show översta rapporterna av totalt $numreports:"
 				foreach row $allrows {
 					# Remember the IDs of all show reports
 					lappend allids [lindex $row 0]

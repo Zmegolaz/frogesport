@@ -1,4 +1,10 @@
-Version 1.3 - 3013-03-17
+Version 1.3.1 - 2013-04-14
+	Changes
+ * Changed MySQL collation to utf8_unicode_ci.
+ * Changed MySQL connection charset to iso8859-1, this seemed to be the only one which could handle special characters from clients (even utf8 ones).
+	Bug fixes
+ * !compare failed when there was a trailing space.
+Version 1.3 - 2013-03-17
 	Features
  * The bot now saves the time each report was shown to an admin and prefers to show others the next time. This makes it possible for multiple admins to correct reports at the same time, without disturbing eachother. Note that the database structure has been changed!
 	Bug fixes
