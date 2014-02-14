@@ -3,7 +3,7 @@
 ###########################################################################
 ###
 #
-#    Copyright 2011-2013 Zmegolaz <zmegolaz@kaizoku.se>
+#    Copyright 2011-2014 Zmegolaz <zmegolaz@kaizoku.se>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -19,6 +19,12 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+REQUIREMENTS
+Eggdrop version 1.8 or later, this is where the procedure putnow is introduced, and it's used to send messages past the flood fitlered queues.
+A MySQL database.
+TCL package mysqltcl.
+
+COMMANDS
 Command - Description - Requirements
 !startquiz - Start the bot - Admin
 !stopquiz - Stop the bot - Admin
@@ -39,6 +45,7 @@ Command - Description - Requirements
 !compare - Compare any number of users to eachother, ordered by season points - Anyone
 !comparetot - Compare any number of users to eachother, ordered by total points - Anyone
 !version - Show the bot version - Anyone
+!time - Shows time left until the user can switch channel - Anyone
 
 [PM]checkq <id> [perm] - Check any question and it's answers - Admin
 [PM]checku <nick> - Check a user, an alias to !stats - Admin
@@ -50,16 +57,22 @@ Command - Description - Requirements
 [PM]recommend <category>|<question>|<answer>[|<answer>] - Recommend a question - Anyone
 [PM]updateclasses - Correct all users' classes - Admin
 
-TODO:
+TODO, no internal order:
+Make sure all all MySQL indexes are as they should be.
+Newseason should save the old table as users_unixtime.
+Newseason should remove inactive users with low (configurable) total points.
+Newseason should reset the mana too.
+Commands written in caps doesn't work.
+Send some kind of message if someone tries to compare a user to the same user.
 Translate everything to English.
+Move all text to a separate file for easier translations.
 Documentation.
 Logg all user/question modifications.
 Happy hour.
 Config sanity check.
-Move all text to a separate file for easier translations.
-
+A customizable clue for each question.
+Separate the help, stats and similar from the question asking.
 Best time per question.
 Number of times a question is asked, and number of times it was answered correctly.
 Characters per second.
-Multiple levels of clues.
 Different points for different questions.

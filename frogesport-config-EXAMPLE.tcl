@@ -3,7 +3,7 @@
 ###########################################################################
 ###
 #
-#    Copyright 2011-2013 Zmegolaz <zmegolaz@kaizoku.se>
+#    Copyright 2011-2014 Zmegolaz <zmegolaz@kaizoku.se>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -33,6 +33,12 @@ variable mysql_dbname "frogesport"
 # Channel the bot is used in, this has to be correct to be able to start the quiz
 variable running_chan "#channel"
 
+# Bot ID. Used when multiple bots are run with the same database, make sure each bot has it's own unique ID. Any number between 0 and 99999 can be used.
+variable i_bot_id "1"
+
+# Should we save all correct answers?
+variable save_answers "yes"
+
 # Set authentication method
 variable auth_method "2"
 # 1: Check if the user is op in the running channel and if the user is class 0 in the database
@@ -46,16 +52,19 @@ variable admin_chan "#channel-admin"
 
 # Time between questions, in seconds
 variable s_question_time "10"
-# Time until clue is given, in seconds
-variable s_clue_time "15"
+# Time between each clue, in seconds
+variable s_clue_time "10"
 # Time users have to answer the question, in seconds
 variable s_time_answer "30"
 # The bot may tell people how long time behind the winner they were, for how long should it collect nicks?
 # Enter in seconds, and has to be lower than s_question_time. Set to 0 to disable this feature.
 variable s_close_behind "3"
+# Time the user has to wait between answering a question in two different channels, in seconds.
+variable s_channel_switch_time "240"
 
-# How many percent of each word in the answer the clue should display, number of letters are rounded up
-variable clue_percent "30"
+# How many percent of each word in the answer the clue should display, number of letters are rounded up.
+# You can have multiple percentages here (in the same quotation marks) to give multiple clues.
+variable clue_percent "30 60"
 
 # Set this to 1 if the bot should give the answers if no user answered correctly
 variable give_answer "0"

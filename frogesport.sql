@@ -47,6 +47,24 @@ CREATE TABLE IF NOT EXISTS `classes` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `correctanswers`
+--
+
+CREATE TABLE IF NOT EXISTS `correctanswers` (
+  `caid` int(16) NOT NULL AUTO_INCREMENT,
+  `coan_qid` int(16) NOT NULL,
+  `coan_uid` int(16) NOT NULL,
+  `coan_channel` varchar(200) NOT NULL,
+  `coan_answer` varchar(256) NOT NULL,
+  `coan_time` decimal(5,3) NOT NULL,
+  `coan_date` int(11) NOT NULL,
+  PRIMARY KEY (`caid`),
+  KEY `coan_uid` (`coan_uid`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 AUTO_INCREMENT=5 ;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `prizes`
 --
 
@@ -67,7 +85,7 @@ CREATE TABLE IF NOT EXISTS `questions` (
   `qid` int(16) NOT NULL AUTO_INCREMENT,
   `ques_category` varchar(256) COLLATE utf8_unicode_ci NOT NULL,
   `ques_question` varchar(512) COLLATE utf8_unicode_ci NOT NULL,
-  `ques_tempid` int(16) DEFAULT NULL,
+  `ques_tempid` decimal(16,5) NOT NULL,
   `ques_source` varchar(512) COLLATE utf8_unicode_ci NOT NULL,
   `ques_addedby` varchar(128) COLLATE utf8_unicode_ci NOT NULL,
   PRIMARY KEY (`qid`),
@@ -149,6 +167,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `user_class` int(16) NOT NULL,
   `user_lastactive` int(16) NOT NULL,
   `user_customclass` varchar(256) COLLATE utf8_unicode_ci NOT NULL,
+  `user_lastactive_chan` varchar(200) COLLATE utf8_unicode_ci NOT NULL,
   PRIMARY KEY (`uid`),
   KEY `user_nick` (`user_nick`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci AUTO_INCREMENT=1 ;

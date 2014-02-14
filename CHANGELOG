@@ -1,5 +1,15 @@
+Version 1.5 - 2014-01-03
+	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
+	Changes
+ * It is now supported to run multiple bots simultaneously, using the same database.
+ * Whitespace before and after an answer is ignored.
+	Features
+ * It is now possible to send multiple levels of clues at different intervals.
+ * A configuration option to save all correct answers is added. For now we're not doing anything with them, but it opens the possibility to provide per user statistics on a web site.
+ * !reward and !punish now has an optional argument with the amount of points to give/take.
+ * An answer can be marked as preferred, which means it is preferred when creating clues.
 Version 1.4 - 2013-09-24
-	NOTE: This version uses a different database structure, make sure to update! An SQL file to use when updating is provided.
+	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
 	Changes
  * modu transfer now moves customclass too, if the source user has one.
 	Bug fixes
