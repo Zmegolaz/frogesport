@@ -982,6 +982,7 @@ namespace eval ::frogesport {
 		putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Lista på kommandon, skriv kommandot och help efteråt för mer detaljerad hjälp.\
 			!spell <magi> \[nick\],\
 			!stats \[nick\],\
+			!time,\
 			!recommend,\
 			!report <id> <kommentar>,\
 			!hof, !top10$opcommands,\
