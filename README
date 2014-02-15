@@ -62,7 +62,6 @@ Make sure all all MySQL indexes are as they should be.
 Newseason should save the old table as users_unixtime.
 Newseason should remove inactive users with low (configurable) total points.
 Newseason should reset the mana too.
-Commands written in caps doesn't work.
 Send some kind of message if someone tries to compare a user to the same user.
 Translate everything to English.
 Move all text to a separate file for easier translations.
@@ -70,7 +69,6 @@ Documentation.
 Logg all user/question modifications.
 Happy hour.
 Config sanity check.
-A customizable clue for each question.
 Separate the help, stats and similar from the question asking.
 Best time per question.
 Number of times a question is asked, and number of times it was answered correctly.
