@@ -1,3 +1,7 @@
+Version 1.6 - 2014-03-17
+	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
+	Features
+ * KPM is now displayed when an answer was correct, and top KPM is saved in the database.
 Version 1.5 - 2014-01-03
 	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
 	Changes

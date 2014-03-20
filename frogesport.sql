@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `user_lastactive` int(16) NOT NULL,
   `user_customclass` varchar(256) COLLATE utf8_unicode_ci NOT NULL,
   `user_lastactive_chan` varchar(200) COLLATE utf8_unicode_ci NOT NULL,
+  `user_kpm_max` double NOT NULL,
   PRIMARY KEY (`uid`),
   KEY `user_nick` (`user_nick`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci AUTO_INCREMENT=1 ;
