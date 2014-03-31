@@ -1,3 +1,6 @@
+Version 1.6.1 - 2014-03-31
+	Features
+ * You can now use !topkpm and !topfast to see the top lists of the respective columns.
 Version 1.6 - 2014-03-17
 	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
 	Features

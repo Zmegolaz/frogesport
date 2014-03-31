@@ -73,6 +73,9 @@ bind pub * "!hof" ::frogesport::hof
 bind pub * "!tid" ::frogesport::time
 bind pub * "!time" ::frogesport::time
 bind pub * "!top10" ::frogesport::top10
+bind pub * "!topfast" ::frogesport::topfast
+bind pub * "!toptid" ::frogesport::topfast
+bind pub * "!topkpm" ::frogesport::topkpm
 bind pub * "!version" ::frogesport::version
 # User commands from PM
 bind msg * "recommend" ::frogesport::msgrecommendq
@@ -84,7 +87,7 @@ bind msg * "förslag" ::frogesport::msgrecommendq
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.5"
+	variable version "1.6"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -346,7 +349,7 @@ namespace eval ::frogesport {
 			} else {
 				# Check if the user answered a question in another channel a short while ago
 				# Get new user information
-				set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_lastactive_chan FROM users WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
+				set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_lastactive_chan, user_kpm_max FROM users WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
 				if {[lindex $curuser 10] != $::frogesport::running_chan && [expr [lindex $curuser 8]+$::frogesport::s_channel_switch_time] > [clock seconds]} {
 					putserv "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick \003${::frogesport::color_text}hade rätt, men måste vänta [expr [lindex $curuser 8]+$::frogesport::s_channel_switch_time-[clock seconds]] sekunder till för att kunna svara i den här kanalen."
 					return
@@ -356,6 +359,8 @@ namespace eval ::frogesport {
 				variable answered 1
 				# How long did it take for the user to answer?
 				set answertime [expr double([clock clicks -milliseconds]-$::frogesport::question_start_time)/1000]
+				# How many keys per minute was that?
+				set answerkpm [expr double(round(1000*([string length $origarg]/($answertime/60))))/1000]
 				# Stop the pending clue and that no answer was given procedures
 				after cancel $::frogesport::c_after_id
 				after cancel $::frogesport::q_after_id
@@ -374,8 +379,8 @@ namespace eval ::frogesport {
 				# Is this a new user?
 				if {$curuser == ""} {
 					# We have a new user!
-					::mysql::exec $::frogesport::mysql_conn "INSERT INTO users (user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_lastactive_chan)\
-						VALUES ('[::mysql::escape $::frogesport::mysql_conn $nick]', 1, 1, '$answertime', 1, 1, 1, [clock seconds], '[::mysql::escape $::frogesport::mysql_conn $::frogesport::running_chan]')"
+					::mysql::exec $::frogesport::mysql_conn "INSERT INTO users (user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_lastactive_chan, user_kpm_max)\
+						VALUES ('[::mysql::escape $::frogesport::mysql_conn $nick]', 1, 1, '$answertime', 1, 1, 1, [clock seconds], '[::mysql::escape $::frogesport::mysql_conn $::frogesport::running_chan]', '$answerkpm')"
 					set uid [::mysql::insertid $::frogesport::mysql_conn]
 					variable currentcorrect [list $nick "1"]
 					set rankmess ""
@@ -392,6 +397,11 @@ namespace eval ::frogesport {
 					set updatetime ""
 					if { $answertime < [lindex $curuser 4] } {
 						set updatetime ", user_time='$answertime'"
+					}
+					# Check if we should update the kpm record
+					set updatekpmmax ""
+					if { $answerkpm > [lindex $curuser 11] } {
+						set updatekpmmax ", user_kpm_max='$answerkpm'"
 					}
 					# Check if we should update the users longest streak
 					set updatestreak ""
@@ -411,7 +421,7 @@ namespace eval ::frogesport {
 					if {[lindex $curuser 6] < [lindex [lindex $::frogesport::classes [lindex $curuser 7]] 3]} {
 						set updatemana ", user_mana=user_mana+1"
 					}
-					::mysql::exec $::frogesport::mysql_conn "UPDATE users SET user_points_season=user_points_season+1, user_points_total=user_points_total+1, user_lastactive='[clock seconds]', user_lastactive_chan='[::mysql::escape $::frogesport::mysql_conn $::frogesport::running_chan]'$updatetime$updatestreak$updateclass$updatemana WHERE uid='$uid'"
+					::mysql::exec $::frogesport::mysql_conn "UPDATE users SET user_points_season=user_points_season+1, user_points_total=user_points_total+1, user_lastactive='[clock seconds]', user_lastactive_chan='[::mysql::escape $::frogesport::mysql_conn $::frogesport::running_chan]'$updatetime$updatestreak$updateclass$updatemana$updatekpmmax WHERE uid='$uid'"
 					::mysql::sel $::frogesport::mysql_conn "SELECT COUNT(user_points_season) FROM users WHERE user_points_season>'[expr [lindex $curuser 2]+1]'"
 					set rank [expr [lindex [::mysql::fetch $::frogesport::mysql_conn] 0]+1]
 					::mysql::sel $::frogesport::mysql_conn "SELECT COUNT(user_points_season) FROM users WHERE user_points_season='[expr [lindex $curuser 2]+1]'"
@@ -429,7 +439,7 @@ namespace eval ::frogesport {
 					set curclass " \[[lindex $curuser 9]\]"
 				}
 				# Tell everyone the time is up
-				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass \003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
+				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass \003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. KPM: ${answerkpm} I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
 				if {[info exists updateclass] && $updateclass != ""} {
 					putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick\003${::frogesport::color_text} har gått upp till level [lindex $newclass 0] och är nu rankad som [lindex $newclass 2]! [lindex $newclass 4]"
 				}
@@ -552,7 +562,7 @@ namespace eval ::frogesport {
 			set user $nick
 		}
 		# Get info about the current user
-		set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass FROM users WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $user]' LIMIT 1" -list] 0]
+		set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_kpm_max FROM users WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $user]' LIMIT 1" -list] 0]
 		# Check if the user exists
 		if {$curuser == ""} {
 			putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}$user har inte svarat rätt på någon fråga än."
@@ -582,6 +592,7 @@ namespace eval ::frogesport {
 		putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Statistik för \003${::frogesport::color_nick}[lindex $curuser 1]\003${::frogesport::color_text}:\
 			Snabbaste tid: \003${::frogesport::color_statsnumber}[lindex $curuser 4]\003${::frogesport::color_text} sekunder.\
 			Bästa streak: \003${::frogesport::color_statsnumber}[lindex $curuser 5]\003${::frogesport::color_text}.\
+			Högsta KPM: \003${::frogesport::color_statsnumber}[lindex $curuser 10]\003${::frogesport::color_text}.\
 			Säsongspoäng: \003${::frogesport::color_statsnumber}[lindex $curuser 2]\003${::frogesport::color_text}.\
 			Total poäng: \003${::frogesport::color_statsnumber}[lindex $curuser 3]\003${::frogesport::color_text}.\
 			Klass: \003${::frogesport::color_class}$curclass\003${::frogesport::color_text}.\
@@ -941,16 +952,30 @@ namespace eval ::frogesport {
 	proc top10 { nick host hand chan arg } {
 		top $nick "season" 10
 	}
+	proc topkpm { nick host hand chan arg } {
+		top $nick "kpm" 10
+	}
+	proc topfast { nick host hand chan arg } {
+		top $nick "fast" 10
+	}
 	proc top { nick scope number } {
-		# Get the data
-		set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_points_$scope FROM users ORDER BY user_points_$scope DESC LIMIT $number" -list]
-		# Decide what to write to the user
+		# Get the data and send a topic
 		switch $scope {
 			"season" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_points_season FROM users ORDER BY user_points_season DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}I ledningen denna säsong:"
 			}
 			"total" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_points_total FROM users ORDER BY user_points_total DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}I ledningen totalt:"
+			}
+			"kpm" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_kpm_max FROM users ORDER BY user_kpm_max DESC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Högst antal knappar per minut:"
+			}
+			"fast" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_time FROM users ORDER BY user_time ASC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Snabbaste svar:"
 			}
 		}
 		# Create the list with the top users
@@ -979,13 +1004,13 @@ namespace eval ::frogesport {
 		if {[isop $nick $::frogesport::running_chan]} {
 			set opcommands ", !answer "
 		}
-		putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Lista på kommandon, skriv kommandot och help efteråt för mer detaljerad hjälp.\
+		putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Lista på kommandon:\
 			!spell <magi> \[nick\],\
 			!stats \[nick\],\
 			!time,\
 			!recommend,\
 			!report <id> <kommentar>,\
-			!hof, !top10$opcommands,\
+			!hof, !top10, !toptid, !topkpm$opcommands,\
 			!compare <nick> \[nick\]...,\
 			!comparetot <nick> \[nick\]..."
 	}
