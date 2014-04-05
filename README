@@ -35,7 +35,7 @@ Command - Description - Requirements
 !punish - Take points from a user - Admin
 !answer - Get the answer for the last question - OP
 !spell <spell> [nick|id] - Cast a spell - Anyone of level 5 or higher
-!startmess - Start sending a message every x minutes - Admin
+!startmess <interval> <message> - Start sending a message every <interval> minutes - Admin
 !stats [nick] - Check the stats for someone, if [nick] is omitted, you will get your own stats - Anyone
 !stopmess - Stop sending a message every x minutes - Admin
 !recommend - Get help about how to recommend questions - Anyone
@@ -63,8 +63,8 @@ Newseason should save the old table as users_unixtime.
 Newseason should remove inactive users with low (configurable) total points.
 Newseason should reset the mana too.
 Send some kind of message if someone tries to compare a user to the same user.
-Translate everything to English.
 Move all text to a separate file for easier translations.
+Translate everything to English.
 Documentation.
 Logg all user/question modifications.
 Happy hour.
@@ -72,5 +72,4 @@ Config sanity check.
 Separate the help, stats and similar from the question asking.
 Best time per question.
 Number of times a question is asked, and number of times it was answered correctly.
-Characters per second.
 Different points for different questions.

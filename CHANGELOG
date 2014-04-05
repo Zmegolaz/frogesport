@@ -1,3 +1,6 @@
+Version 1.6.2 - 2014-04-05
+	Changes
+ * !startmess now takes two arguments, interval and message, instead of them having to be configured in hte config file.
 Version 1.6.1 - 2014-03-31
 	Features
  * You can now use !topkpm and !topfast to see the top lists of the respective columns.

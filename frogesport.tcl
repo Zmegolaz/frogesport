@@ -87,7 +87,7 @@ bind msg * "förslag" ::frogesport::msgrecommendq
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.6"
+	variable version "1.6.2"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -187,6 +187,18 @@ namespace eval ::frogesport {
 		if {![checkauth $nick]} {
 			return
 		}
+		if {[llength $arg] < 2} {
+			putserv "NOTICE $nick :!startmess <intervall> <meddelande>"
+			return
+		}
+		# Stop the previous message if it's already running
+		if {[info exists ::frogesport::messageId]} {
+			after cancel $::frogesport::messageId
+		}
+		# How often? In minutes.
+		variable s_periodic_message [lindex $arg 0]
+		# What should the message be?
+		variable periodic_message [lrange $arg 1 end]
 		sendmess
 	}
 
@@ -1000,7 +1012,7 @@ namespace eval ::frogesport {
 	# Give the user help
 	proc help { nick host hand chan arg } {
 		# If the user is OP, give it the op commands too
-		set opcommands ""
+		set opcommands ", !startmess <intervall> <meddelande>"
 		if {[isop $nick $::frogesport::running_chan]} {
 			set opcommands ", !answer "
 		}

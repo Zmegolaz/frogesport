@@ -93,11 +93,6 @@ variable recommend_show "7"
 # How many seconds has to pass between each ping command?
 variable s_pinginterval "10"
 
-# The bot can send periodic messages to the channel, for example to tell people why it is down. What should that message be?
-variable periodic_message "Frogesport is down because of database maintenance."
-# How often? In minutes.
-variable s_periodic_message "1"
-
 # Text color:
 variable color_text "00"
 # Text background color
