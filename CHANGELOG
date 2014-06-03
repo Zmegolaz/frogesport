@@ -1,3 +1,6 @@
+Version 1.7 - 2014-06-03
+	Features
+ * It is now possible to manually tell the bot to enqueue questions to ask next, by ID or by searching for a string.
 Version 1.6.2 - 2014-04-05
 	Changes
  * !startmess now takes two arguments, interval and message, instead of them having to be configured in hte config file.

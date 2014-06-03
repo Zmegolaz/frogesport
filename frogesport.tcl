@@ -54,18 +54,22 @@ bind msg * "updateclasses" ::frogesport::msgupdateclasses
 
 # User commands
 bind pub * "!addq" ::frogesport::recommendq
+bind pub * "!clearqueue" ::frogesport::clearqueue
 bind pub * "!compare" ::frogesport::compare
 bind pub * "!jämför" ::frogesport::compare
 bind pub * "!comparetot" ::frogesport::comparetot
 bind pub * "!jämförtot" ::frogesport::comparetot
 bind pub * "!help" ::frogesport::help
 bind pub * "!hjälp" ::frogesport::help
+bind pub * "!queue" ::frogesport::queueques
+bind pub * "!köa" ::frogesport::queueques
 bind pub * "!stats" ::frogesport::stats
 bind pub * "!magi" ::frogesport::spell
 bind pub * "!ping" ::frogesport::ping
-bind pub * "!spell" ::frogesport::spell
-bind pub * "!report" ::frogesport::report
 bind pub * "!recommend" ::frogesport::recommendq
+bind pub * "!rensakö" ::frogesport::clearqueue
+bind pub * "!report" ::frogesport::report
+bind pub * "!spell" ::frogesport::spell
 bind pub * "!suggest" ::frogesport::recommendq
 bind pub * "!föreslå" ::frogesport::recommendq
 bind pub * "!förslag" ::frogesport::recommendq
@@ -78,16 +82,20 @@ bind pub * "!toptid" ::frogesport::topfast
 bind pub * "!topkpm" ::frogesport::topkpm
 bind pub * "!version" ::frogesport::version
 # User commands from PM
+bind msg * "clearqueue" ::frogesport::msgclearqueue
 bind msg * "recommend" ::frogesport::msgrecommendq
 bind msg * "suggest" ::frogesport::msgrecommendq
 bind msg * "föreslå" ::frogesport::msgrecommendq
 bind msg * "förslag" ::frogesport::msgrecommendq
+bind msg * "köa" ::frogesport::msgqueueques
+bind msg * "queue" ::frogesport::msgqueueques
+bind msg * "rensakö" ::frogesport::msgclearqueue
 
 # We need the mysqltcl package
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.6.2"
+	variable version "1.7"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -130,6 +138,9 @@ namespace eval ::frogesport {
 
 	# Set and fix some variables
 	variable season_code ""
+	if {![info exists quesqueue]} {
+		variable quesqueue ""
+	}
 
 	# Load ::frogesport::admins and ::frogesport::prizes
 	variable dbadmins [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick FROM users WHERE user_class=0" -list]
@@ -242,15 +253,156 @@ namespace eval ::frogesport {
 		# Ask the first question
 		askquestion
 	}
-
+	
+	# Clear the question queue.
+	proc clearqueue { nick host hand chan arg } {
+		msgclearqueue $nick $host $hand $arg $chan
+	}
+	
+	proc msgclearqueue { nick host hand arg {sendto ""} } {
+		# Where should we send the replies?
+		if {$sendto == ""} {
+			set sendto $nick
+		}
+		# Check if the user is allowed to clear the queue.
+		switch $::frogesport::queueques_who {
+			0 {
+				return
+			}
+			1 {
+				if {![checkauth $nick]} {
+					return
+				}
+			}
+			2 {
+				if {![checkauth $nick] && ![isop $nick $::frogesport::running_chan]} {
+					return
+				}
+			}
+			3 {
+				if {![checkauth $nick] && ![isop $nick $::frogesport::running_chan] && ![isvoice $nick $::frogesport::running_chan]} {
+					return
+				}
+			}
+		}
+		set ::frogesport::quesqueue ""
+		putserv "PRIVMSG $sendto :\003${::frogesport::color_text},${::frogesport::color_background}Frågekön rensad."
+	}
+	
+	# Put specific questions in the queue
+	proc queueques { nick host hand chan arg } {
+		msgqueueques $nick $host $hand $arg $chan
+	}
+	
+	proc msgqueueques { nick host hand arg {sendto ""} } {
+		# Where should we send the replies?
+		if {$sendto == ""} {
+			set sendto $nick
+		}
+		
+		# Check if the user is allowed to add questions.
+		# 0: Nobody.
+		# 1: Admins (see auth_method above.)
+		# 2: OPs and admins.
+		# 3: Voiced users, OPs and admins.
+		# 4: Anyone.
+		switch $::frogesport::queueques_who {
+			0 {
+				return
+			}
+			1 {
+				if {![checkauth $nick]} {
+					return
+				}
+			}
+			2 {
+				if {![checkauth $nick] && ![isop $nick $::frogesport::running_chan]} {
+					return
+				}
+			}
+			3 {
+				if {![checkauth $nick] && ![isop $nick $::frogesport::running_chan] && ![isvoice $nick $::frogesport::running_chan]} {
+					return
+				}
+			}
+		}
+		
+		# Check if the question queue is too long.
+		if {[llength $::frogesport::quesqueue] >= $::frogesport::queueques_num} {
+			putserv "PRIVMSG $sendto :\003${::frogesport::color_text},${::frogesport::color_background}Ingen fråga tillagd, kön är full."
+			return
+		}
+		# Time to process the arguments.
+		if {[llength $arg] == 1} {
+			# Only one argument.
+			if {[regexp "^\[0-9\]+\$" $arg]} {
+				# That argument is numerical, so just put that ID in the queue and return.
+				lappend ::frogesport::quesqueue $arg
+				putserv "PRIVMSG $sendto :\003${::frogesport::color_text},${::frogesport::color_background}En fråga köad."
+				return
+			}
+		}
+		
+		# There are more than one argument, or that one argument is non numerical.
+		if {[regexp "^\[0-9\]+\$" [lindex $arg 0]]} {
+			set numques [lindex $arg 0]
+			# Remove the number from the argument.
+			set arg [lrange $arg 1 end]
+		} else {
+			# If we don't have any number, we should add 1/3 of the maximum queue length.
+			set numques [expr int(ceil($::frogesport::queueques_num/3))]
+		}
+		
+		# Check if we're allowed to add this many questions to the queue.
+		if {$numques > $::frogesport::queueques_num - [llength $::frogesport::quesqueue]} {
+			set numques [expr $::frogesport::queueques_num - [llength $::frogesport::quesqueue]]
+		}
+		
+		# The first argument is (now) non numerical and what we should search for.
+		switch $::frogesport::queueques_searchwhere {
+			1 {
+				set tempques [::mysql::sel $::frogesport::mysql_conn "SELECT qid FROM questions WHERE ques_category LIKE '%[::mysql::escape $::frogesport::mysql_conn $arg]%' ORDER BY RAND() LIMIT $numques" -list]
+			}
+			2 {
+				set tempques [::mysql::sel $::frogesport::mysql_conn "SELECT qid FROM questions WHERE ques_question LIKE '%[::mysql::escape $::frogesport::mysql_conn $arg]%' ORDER BY RAND() LIMIT $numques" -list]
+			}
+			3 {
+				set tempques [::mysql::sel $::frogesport::mysql_conn "SELECT qid FROM questions WHERE ques_category LIKE '%[::mysql::escape $::frogesport::mysql_conn $arg]%' OR ques_question LIKE '%[::mysql::escape $::frogesport::mysql_conn $arg]%' ORDER BY RAND() LIMIT $numques" -list]
+			}
+		}
+		switch [llength $tempques] {
+			0 {
+				putserv "PRIVMSG $sendto :\003${::frogesport::color_statsnumber},${::frogesport::color_background}Inga\003${::frogesport::color_text} frågor hittade."
+			}
+			1 {
+				putserv "PRIVMSG $sendto :\003${::frogesport::color_statsnumber},${::frogesport::color_background}En\003${::frogesport::color_text} fråga köad."
+				lappend ::frogesport::quesqueue {*}$tempques
+			}
+			default {
+				putserv "PRIVMSG $sendto :\003${::frogesport::color_statsnumber},${::frogesport::color_background}[llength $tempques]\003${::frogesport::color_text} frågor köade."
+				lappend ::frogesport::quesqueue {*}$tempques
+			}
+		}
+	}
+	
 	# Ask a question
 	proc askquestion { } {
 		# Set the current temporary ID
 		variable cur_temp_id [expr $::frogesport::cur_temp_id+1]
-		# Get the number of questions we have and multiply it by a random number to get a random offset
-		set offset [::mysql::sel $::frogesport::mysql_conn "SELECT floor(RAND() * COUNT(*)) from questions" -list]
-		# Get the question, use the previous offset to get a random one
-		set question [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT qid, ques_category, ques_question FROM questions LIMIT [lindex $offset 0],1" -list] 0]
+		# Check if we have a question in the question queue.
+		set question ""
+		while {[llength $::frogesport::quesqueue] && $question == ""} {
+			set question [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT qid, ques_category, ques_question FROM questions WHERE qid='[lindex $::frogesport::quesqueue 0]'" -list] 0]
+			# Remove the question we just got from the queue.
+			set ::frogesport::quesqueue [lrange $::frogesport::quesqueue 1 end]
+		}
+		# OK, if we didn't get a question from the queue, get one at random.
+		if {$question == ""} {
+			# Get the number of questions we have and multiply it by a random number to get a random offset
+			set offset [::mysql::sel $::frogesport::mysql_conn "SELECT floor(RAND() * COUNT(*)) from questions" -list]
+			# Get the question, use the previous offset to get a random one
+			set question [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT qid, ques_category, ques_question FROM questions LIMIT [lindex $offset 0],1" -list] 0]
+		}
 		# Set the temporary ID on the question in the database
 		::mysql::exec $::frogesport::mysql_conn "UPDATE questions SET ques_tempid='$::frogesport::cur_temp_id.$::frogesport::bot_id' WHERE qid='[lindex $question 0]'"
 		# Get the answers, the default ones first if there are any, otherwise a random order.

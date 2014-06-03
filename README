@@ -26,34 +26,38 @@ TCL package mysqltcl.
 
 COMMANDS
 Command - Description - Requirements
-!startquiz - Start the bot - Admin
-!stopquiz - Stop the bot - Admin
-!clear - Clear all pending actions, should never have to be used - Admin
-!pause - Pause the bot, without clearing the questions IDs - Admin
-!continue - If the bot has been paused, start it again - Admin
-!reward - Give points to a user - Admin
-!punish - Take points from a user - Admin
 !answer - Get the answer for the last question - OP
-!spell <spell> [nick|id] - Cast a spell - Anyone of level 5 or higher
-!startmess <interval> <message> - Start sending a message every <interval> minutes - Admin
-!stats [nick] - Check the stats for someone, if [nick] is omitted, you will get your own stats - Anyone
-!stopmess - Stop sending a message every x minutes - Admin
-!recommend - Get help about how to recommend questions - Anyone
-!report <id> <comment> - Report a question - Anyone
-!hof - Hall of fame, the 10 users with the highest total points - Anyone
-!top10 - Top 10 users of this season - Anyone
+!clear - Clear all pending actions, should never have to be used - Admin
+!clearqueue - Clear the queue of questions to ask next - Depends on configuration
 !compare - Compare any number of users to eachother, ordered by season points - Anyone
 !comparetot - Compare any number of users to eachother, ordered by total points - Anyone
-!version - Show the bot version - Anyone
+!continue - If the bot has been paused, start it again - Admin
+!hof - Hall of fame, the 10 users with the highest total points - Anyone
+!pause - Pause the bot, without clearing the questions IDs - Admin
+!punish - Take points from a user - Admin
+!queue [number] <string/id> - Add one or more question matching the search string to the queue of questions to ask next - Depends on configuration
+!reward - Give points to a user - Admin
+!spell <spell> [nick|id] - Cast a spell - Anyone of level 5 or higher
+!startmess <interval> <message> - Start sending a message every <interval> minutes - Admin
+!startquiz - Start the bot - Admin
+!stats [nick] - Check the stats for someone, if [nick] is omitted, you will get your own stats - Anyone
+!stopmess - Stop sending a message every x minutes - Admin
+!stopquiz - Stop the bot - Admin
+!recommend - Get help about how to recommend questions - Anyone
+!report <id> <comment> - Report a question - Anyone
 !time - Shows time left until the user can switch channel - Anyone
+!top10 - Top 10 users of this season - Anyone
+!version - Show the bot version - Anyone
 
 [PM]checkq <id> [perm] - Check any question and it's answers - Admin
 [PM]checku <nick> - Check a user, an alias to !stats - Admin
+[PM]clearqueue - Clear the queue of questions to ask next - Depends on configuration
 [PM]addq <category>|<question>|<answer>\[|answer\]... - Add a question - Admin
 [PM]delq <id> [perm] - Delete a question - Admin
 [PM]modq <id> [perm] <category|question|answer> <value> - Modify a part of a question - Admin
 [PM]modu <nick|season|total|time|inarow|mana|class|last|customclass|transfer|help> <nick|subcommand> [new value] - Modify any part of a user - Admin
 [PM]newseason [help] - Start a new season - Admin
+[PM]queue [number] <string/id> - Add one or more question matching the search string to the queue of questions to ask next - Depends on configuration
 [PM]recommend <category>|<question>|<answer>[|<answer>] - Recommend a question - Anyone
 [PM]updateclasses - Correct all users' classes - Admin
 

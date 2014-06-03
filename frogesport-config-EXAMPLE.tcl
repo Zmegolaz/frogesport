@@ -40,10 +40,10 @@ variable i_bot_id "1"
 variable save_answers "yes"
 
 # Set authentication method
-variable auth_method "2"
 # 1: Check if the user is op in the running channel and if the user is class 0 in the database
 # 2: Check if the user is op in the running channel and is in the configured list of admins
 # 3: Check if the user is op in the admin channel
+variable auth_method "2"
 
 # Bot admins, separated by space. Only needed if auth_method is set to 2
 variable admins "your-nick"
@@ -89,20 +89,36 @@ variable rewpun_points "5"
 variable reports_show "7"
 variable recommend_show "7"
 
+# Who should be able to queue specific questions?
+# 0: Nobody.
+# 1: Admins (see auth_method above.)
+# 2: OPs and admins.
+# 3: Voiced users, OPs and admins.
+# 4: Anyone.
+variable queueques_who 0
+
+# How many questions should be allowed to be in the queue?
+variable queueques_num 30
+# Where should we search for the keywords?
+# 1: Category column.
+# 2: Question column.
+# 3: Both category and question columns.
+variable queueques_searchwhere 1
+
 # How many seconds has to pass between each ping command?
 variable s_pinginterval "10"
 
 # Text color:
 variable color_text "00"
-# Text background color
+# Text background color.
 variable color_background "01"
-# Color of users nicks
+# Color of users nicks.
 variable color_nick "09"
-# Color of classes
+# Color of classes.
 variable color_class "08"
-# Color of answers
+# Color of answers.
 variable color_answer "04"
-# Color of numbers in stats
+# Color of numbers in stats.
 variable color_statsnumber "04"
 
 # Colors:
