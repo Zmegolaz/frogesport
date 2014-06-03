@@ -81,8 +81,7 @@ variable cost_prevanswer "20"
 variable steal_points "5"
 variable give_points "5"
 # How many points should !punish and !reward take/give?
-variable reward_points "5"
-variable punish_points "5"
+variable rewpun_points "5"
 
 # How many reports nad recommended questions should be shown in PM?
 # Be careful, to high and the bot'll be too busy pasting reports and won't answer other commands
