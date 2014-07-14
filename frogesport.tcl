@@ -1259,8 +1259,14 @@ namespace eval ::frogesport {
 					putserv "PRIVMSG $nick :Du får inte skapa en armé om du redan är medlem i en annan, lämna den du är med i först."
 					return
 				}
+				# Check if the requested new clan exists.
+				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*) FROM clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $action2]'" -list]
+				if {[lindex $newclan 0 0] != 0} {
+					putserv "PRIVMSG $nick :Det finns redan en armé med namnet \"$action2\", var vänlig välj ett annat."
+					return
+				}
 				# Create the clan and join the user.
-				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clans (clan_name, clan_created) VALUES ('[::mysql::escape $::frogesport::mysql_conn $action2]', UNIX_TIMESTAMP(NOW()))"
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clans (clan_name, clan_created, clan_createdby) VALUES ('[::mysql::escape $::frogesport::mysql_conn $action2]', UNIX_TIMESTAMP(NOW()), '[lindex $curuser 0 0]')"
 				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid, clme_applied, clme_admin, clme_joined) VALUES ('[::mysql::insertid $::frogesport::mysql_conn]', '[lindex $curuser 0 0]', 'no', 'yes', UNIX_TIMESTAMP(NOW()))"
 				putserv "PRIVMSG $nick :$action2 skapad!"
 			}
