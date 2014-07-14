@@ -1245,7 +1245,25 @@ namespace eval ::frogesport {
 		set helpvar "Hjälp: "
 		# Get info about the current user and clan.
 		set curuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]'" -list]
+		putlog $curuser
 		switch -glob $action {
+			"create" - 
+			"skapa" {
+				# TODO: Kolla att klanen inte redan finns!
+				if {[llength $arg] < 2} {
+					putserv "PRIVMSG $nick :$helpvar"
+					return
+				}
+				# Check if the user already is a member of a clan.
+				if {[lindex $curuser 0 1] != ""} {
+					putserv "PRIVMSG $nick :Du får inte skapa en armé om du redan är medlem i en annan, lämna den du är med i först."
+					return
+				}
+				# Create the clan and join the user.
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clans (clan_name, clan_created) VALUES ('[::mysql::escape $::frogesport::mysql_conn $action2]', UNIX_TIMESTAMP(NOW()))"
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid, clme_applied, clme_admin, clme_joined) VALUES ('[::mysql::insertid $::frogesport::mysql_conn]', '[lindex $curuser 0 0]', 'no', 'yes', UNIX_TIMESTAMP(NOW()))"
+				putserv "PRIVMSG $nick :$action2 skapad!"
+			}
 			"join" -
 			"ans?k" {
 				if {[llength $arg] < 2} {
@@ -1253,7 +1271,7 @@ namespace eval ::frogesport {
 					return
 				}
 				# Check if the user already is a member of a clan.
-				if {[lindex $curuser 1] != ""} {
+				if {[lindex $curuser 0 1] != ""} {
 					putserv "PRIVMSG $nick :Du får inte gå med i fler armeer, lämna den du är med i först."
 					return
 				}
@@ -1264,7 +1282,7 @@ namespace eval ::frogesport {
 					return
 				}
 				# Create the clan application!
-				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid) VALUES ('[lindex $newclan 1]', '[lindex $curuser 0]')"
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid) VALUES ('[lindex $newclan 0 1]', '[lindex $curuser 0 0]')"
 				putserv "PRIVMSG $nick :Ansökan till $action2 skickad."
 			}
 			"leave" -
@@ -1298,11 +1316,6 @@ namespace eval ::frogesport {
 			"administrera" {
 				# stuff goes here
 				# byt namn, kolla att det inte finns en sån redan
-			}
-			"create" - 
-			"skapa" {
-				
-				# skapa skiten
 			}
 		}
 	}
