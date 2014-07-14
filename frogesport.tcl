@@ -18,9 +18,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-############################################################
-###     You don't need to edit anything in this file     ###
-############################################################
+###########################################################################
+###            You don't need to edit anything in this file.            ###
+###########################################################################
 
 # Create the bindings
 # Admin commands
@@ -82,6 +82,9 @@ bind pub * "!toptid" ::frogesport::topfast
 bind pub * "!topkpm" ::frogesport::topkpm
 bind pub * "!version" ::frogesport::version
 # User commands from PM
+bind msg * "arme" ::frogesport::msgclan
+bind msg * "armé" ::frogesport::msgclan
+bind msg * "clan" ::frogesport::msgclan
 bind msg * "clearqueue" ::frogesport::msgclearqueue
 bind msg * "recommend" ::frogesport::msgrecommendq
 bind msg * "suggest" ::frogesport::msgrecommendq
@@ -95,7 +98,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.7"
+	variable version "1.8 Alpha"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -332,22 +335,23 @@ namespace eval ::frogesport {
 			putserv "PRIVMSG $sendto :\003${::frogesport::color_text},${::frogesport::color_background}Ingen fråga tillagd, kön är full."
 			return
 		}
+		
 		# Time to process the arguments.
-		if {[llength $arg] == 1} {
+		if {[llength [split $arg]] == 1} {
 			# Only one argument.
 			if {[regexp "^\[0-9\]+\$" $arg]} {
 				# That argument is numerical, so just put that ID in the queue and return.
-				lappend ::frogesport::quesqueue $arg
+				lappend ::frogesport::quesqueue [split $arg]
 				putserv "PRIVMSG $sendto :\003${::frogesport::color_text},${::frogesport::color_background}En fråga köad."
 				return
 			}
 		}
 		
 		# There are more than one argument, or that one argument is non numerical.
-		if {[regexp "^\[0-9\]+\$" [lindex $arg 0]]} {
-			set numques [lindex $arg 0]
+		if {[regexp "^\[0-9\]+\$" [lindex [split $arg] 0]]} {
+			set numques [lindex [split $arg] 0]
 			# Remove the number from the argument.
-			set arg [lrange $arg 1 end]
+			set arg [lrange [split $arg] 1 end]
 		} else {
 			# If we don't have any number, we should add 1/3 of the maximum queue length.
 			set numques [expr int(ceil($::frogesport::queueques_num/3))]
@@ -408,7 +412,7 @@ namespace eval ::frogesport {
 		# Get the answers, the default ones first if there are any, otherwise a random order.
 		variable answers [::mysql::sel $::frogesport::mysql_conn "SELECT answ_answer FROM answers WHERE answ_question='[lindex $question 0]' ORDER BY answ_prefer DESC, RAND()" -flatlist]
 		# Ask the question
-		putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}$::frogesport::cur_temp_id: [lindex $question 1]: [lindex $question 2]"
+		putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}\037$::frogesport::cur_temp_id\037: [lindex $question 1]: [lindex $question 2]"
 		# Remember the permanent ID of the question for later use.
 		variable cur_perm_id [lindex $question 0]
 		# The current question is not answered
@@ -1231,6 +1235,76 @@ namespace eval ::frogesport {
 	proc comparetot { nick host hand chan arg } {
 		# Compare the totalt points. This procedure would be an almost exact copy of compare, so use that instead
 		compare $nick $host $hand $chan $arg "1"
+	}
+	
+	proc msgclan { nick host hand arg } {
+		# We need to split the argument to be able to use it as a list.
+		set arg [split $arg]
+		set action [lindex $arg 0]
+		set action2 [lrange $arg 1 end]
+		set helpvar "Hjälp: "
+		# Get info about the current user and clan.
+		set curuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]'" -list]
+		switch -glob $action {
+			"join" -
+			"ans?k" {
+				if {[llength $arg] < 2} {
+					putserv "PRIVMSG $nick :$helpvar"
+					return
+				}
+				# Check if the user already is a member of a clan.
+				if {[lindex $curuser 1] != ""} {
+					putserv "PRIVMSG $nick :Du får inte gå med i fler armeer, lämna den du är med i först."
+					return
+				}
+				# Check if the requested new clan exists.
+				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*), clid FROM clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $action2]'" -list]
+				if {[lindex $newclan 0 0] == 0} {
+					putserv "PRIVMSG $nick :Det finns ingen armé med namnet \"$action2\", dubbelkolla stavningen eller skapa en ny med \"arme skapa $action2\""
+					return
+				}
+				# Create the clan application!
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid) VALUES ('[lindex $newclan 1]', '[lindex $curuser 0]')"
+				putserv "PRIVMSG $nick :Ansökan till $action2 skickad."
+			}
+			"leave" -
+			"l?mna" {
+				# är användaren i en klan?
+					# sql: delete from clans where clanname=$clan
+					# putserv "klan $clan lämnad"
+					# finns det ingen medlem kvar alls?
+						# sql: delete from clans where clanname=$clan
+						# return
+					# finns det ingen admin kvar?
+						# sql: update set admin where clanname=$clan order by clid asc limit 1 (sätter den äldsta medlemmen till admin)
+				# else
+					# putserv "du är inte med i någon klan"
+			}
+			"role" -
+			"roll" {
+				# är användaren INTE i en klan?
+					# putserv "du är inte i någon klan"
+					return
+				# är användaren INTE admin?
+					# putserv "du är inte admin i $clan"
+					return
+				# hämta info om användaren $action2
+				# är $action2 INTE i samma klan som användaren?
+					# putserv "$action2 är inte med i din klan"
+					return
+				#
+			}
+			"admin" -
+			"administrera" {
+				# stuff goes here
+				# byt namn, kolla att det inte finns en sån redan
+			}
+			"create" - 
+			"skapa" {
+				
+				# skapa skiten
+			}
+		}
 	}
 
 	# Admins shouldn't have to use !stats in public to check a user
