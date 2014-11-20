@@ -102,7 +102,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8"
+	variable version "1.8 Beta1"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -1202,7 +1202,7 @@ namespace eval ::frogesport {
 			!time,\
 			!recommend,\
 			!report <id> <kommentar>,\
-			!hof, !top10, !toptid, !topkpm$opcommands,\
+			!hof,, !hofarme, !top10, !top10arme, !toptid, !topkpm$opcommands,\
 			!compare <nick> \[nick\]...,\
 			!comparetot <nick> \[nick\]..."
 	}
@@ -1959,7 +1959,7 @@ namespace eval ::frogesport {
 	}
 
 	proc msghelp { nick host hand arg } {
-		putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Hjälp för kommandon skrivna här i PM: recommend <källa på frågan>|<kategori>|<fråga>|<svar>\[|<svar>\]..."
+		putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Hjälp för kommandon skrivna här i PM: recommend <källa på frågan>|<kategori>|<fråga>|<svar>\[|<svar>\]..., arme hjälp"
 		# Admins should have more help
 		if {[checkauth $nick]} {
 			putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Hjälp för admins, skrivna i kanalen: !startquiz, !stopquiz, !answer"
