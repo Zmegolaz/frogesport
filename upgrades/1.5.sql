@@ -1,4 +1,4 @@
-Version 1.4 -> 1.5
+-- New in version 1.5
 
 ALTER TABLE `questions` MODIFY COLUMN `ques_tempid` DECIMAL(16,5) NOT NULL ;
 ALTER TABLE `users` ADD `user_lastactive_chan` VARCHAR( 200 ) NOT NULL ;

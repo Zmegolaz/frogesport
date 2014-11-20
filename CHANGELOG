@@ -1,3 +1,12 @@
+Version 1.8 - ????
+	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
+	Features
+ * Users can now join clans and compete as a team. Channel commands !top10clan and !hofclan, as well as PM command "clan" has been added.
+	Changes
+ * The question ID is now underlined.
+	Bug fixes
+ * A lot of arguments failed if they had unmatched quotes or brackets in them.
+ * Nicks with [] in them wasn't handled correctly in some cases
 Version 1.7 - 2014-06-03
 	Features
  * It is now possible to manually tell the bot to enqueue questions to ask next, by ID or by searching for a string.

@@ -1,4 +1,4 @@
-Version 1.3.2 -> 1.4
+-- New in version 1.4
 
 ALTER TABLE `recommendqs` ADD `recq_source` VARCHAR( 512 ) NOT NULL ;
 ALTER TABLE `recommendqs` ADD `recq_lastshow` INT( 11 ) NOT NULL ;

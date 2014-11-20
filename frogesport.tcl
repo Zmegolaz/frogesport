@@ -74,10 +74,14 @@ bind pub * "!suggest" ::frogesport::recommendq
 bind pub * "!föreslå" ::frogesport::recommendq
 bind pub * "!förslag" ::frogesport::recommendq
 bind pub * "!hof" ::frogesport::hof
+bind pub * "!hofarme" ::frogesport::topclantotal
+bind pub * "!hofclan" ::frogesport::topclantotal
 bind pub * "!tid" ::frogesport::time
 bind pub * "!time" ::frogesport::time
 bind pub * "!top10" ::frogesport::top10
 bind pub * "!topfast" ::frogesport::topfast
+bind pub * "!top10arme" ::frogesport::topclanseason
+bind pub * "!top10clan" ::frogesport::topclanseason
 bind pub * "!toptid" ::frogesport::topfast
 bind pub * "!topkpm" ::frogesport::topkpm
 bind pub * "!version" ::frogesport::version
@@ -98,7 +102,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8 Alpha"
+	variable version "1.8 Beta1"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -111,6 +115,7 @@ namespace eval ::frogesport {
 	# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection, it sometimes disappears
 	proc checkdb { } {
 		if {[info exists ::frogesport::mysql_conn]} {
+			# TODO: Add a try/catch here, the above if statement doesn't catch everything.
 			::mysql::close $::frogesport::mysql_conn
 		}
 		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "iso8859-1"]
@@ -234,7 +239,7 @@ namespace eval ::frogesport {
 		if {![checkauth $nick]} {
 			return
 		}
-		if {![string match -nocase $chan $::frogesport::running_chan]} {
+		if {![string equal -nocase $chan $::frogesport::running_chan]} {
 			putserv "PRIVMSG $chan :\003${::frogesport::color_text},${::frogesport::color_background}Det här är inte kanalen som boten är confad att köras i!"
 			return
 		}
@@ -504,7 +509,7 @@ namespace eval ::frogesport {
 		set arg [string map { "*" "\\\*" "?" "\\\?" "\[" "\\\[" "\]" "\\\]" } [string trim $arg]]
 		# Check if the answer was correct
 		if {[info exists ::frogesport::answers] && [lsearch -nocase $::frogesport::answers $arg] >= 0} {
-			# Check wether or not this is the first correct answer
+			# Check whether or not this is the first correct answer
 			if {$::frogesport::answered} {
 				# Remember the nick if the close behind feature is enabled, we're collecting nicks, it's this users first close behind answer and the user wasn't the first answerer
 				if {$::frogesport::s_close_behind && $::frogesport::close_behind_collecting && [lsearch $::frogesport::correct_close_nick $nick] < 0 && $nick != $::frogesport::last_correct_nick} {
@@ -517,7 +522,7 @@ namespace eval ::frogesport {
 			} else {
 				# Check if the user answered a question in another channel a short while ago
 				# Get new user information
-				set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_lastactive_chan, user_kpm_max FROM users WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
+				set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_lastactive_chan, user_kpm_max, clan_name FROM users LEFT JOIN clanmembers ON uid=clme_uid LEFT JOIN clans ON clme_clid=clid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
 				if {[lindex $curuser 10] != $::frogesport::running_chan && [expr [lindex $curuser 8]+$::frogesport::s_channel_switch_time] > [clock seconds]} {
 					putserv "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick \003${::frogesport::color_text}hade rätt, men måste vänta [expr [lindex $curuser 8]+$::frogesport::s_channel_switch_time-[clock seconds]] sekunder till för att kunna svara i den här kanalen."
 					return
@@ -554,7 +559,7 @@ namespace eval ::frogesport {
 					set rankmess ""
 				} else {
 					# The user's been here before, check for a streak
-					if {[string match $nick [lindex $::frogesport::currentcorrect 0]]} {
+					if {[string equal $nick [lindex $::frogesport::currentcorrect 0]]} {
 						# The user is on a streak, add the user to the current streakmeater
 						variable currentcorrect [list $nick [expr [lindex $::frogesport::currentcorrect 1]+1]]
 					} else {
@@ -606,8 +611,13 @@ namespace eval ::frogesport {
 				if {[lindex $curuser 9] != ""} {
 					set curclass " \[[lindex $curuser 9]\]"
 				}
+				set clanname ""
+				# Check if the user has a custom class
+				if {[lindex $curuser 12] != ""} {
+					set clanname "\[[lindex $curuser 12]\] "
+				}
 				# Tell everyone the time is up
-				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass \003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. KPM: ${answerkpm} I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
+				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass $clanname\003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. KPM: ${answerkpm} I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
 				if {[info exists updateclass] && $updateclass != ""} {
 					putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick\003${::frogesport::color_text} har gått upp till level [lindex $newclass 0] och är nu rankad som [lindex $newclass 2]! [lindex $newclass 4]"
 				}
@@ -976,7 +986,7 @@ namespace eval ::frogesport {
 	proc msgrecommendq { nick host hand arg } {
 		set arg [string trim $arg "| 	"]
 		set helpvar "\003${::frogesport::color_text},${::frogesport::color_background}Användning: recommend <källa på frågan>|<kategori>|<fråga>|<svar>\[|<svar>\]... Skriv \u00A7 i början av ett svar för att använda det för att skapa ledtråden. Exempel: recommend Wikipedia-länk|Grodan|I vilken kanal körs grodan?|\u00A7#grodan|grodan"
-		if {[string match -nocase "help" $arg] || [string match -nocase "hj?lp" $arg]} {
+		if {[string equal -nocase "help" $arg] || [string match -nocase "hj?lp" $arg]} {
 			putserv "PRIVMSG $nick :$helpvar"
 			return
 		}
@@ -1126,6 +1136,12 @@ namespace eval ::frogesport {
 	proc topfast { nick host hand chan arg } {
 		top $nick "fast" 10
 	}
+	proc topclantotal { nick host hand chan arg } {
+		top $nick "clantotal" 10
+	}
+	proc topclanseason { nick host hand chan arg } {
+		top $nick "clanseason" 10
+	}
 	proc top { nick scope number } {
 		# Get the data and send a topic
 		switch $scope {
@@ -1144,6 +1160,14 @@ namespace eval ::frogesport {
 			"fast" {
 				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_time FROM users ORDER BY user_time ASC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Snabbaste svar:"
+			}
+			"clantotal" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, SUM(user_points_total) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med flest totalpoäng:"
+			}
+			"clanseason" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, SUM(user_points_season) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med flest säsongspoäng:"
 			}
 		}
 		# Create the list with the top users
@@ -1240,35 +1264,44 @@ namespace eval ::frogesport {
 	proc msgclan { nick host hand arg } {
 		# We need to split the argument to be able to use it as a list.
 		set arg [split $arg]
-		set action [lindex $arg 0]
-		set action2 [lrange $arg 1 end]
-		set helpvar "Hjälp: "
+		set arg0 [lindex $arg 0]
+		set arg1 [lindex $arg 1]
+		set arg1end [lrange $arg 1 end]
+		set helpvar "\003${::frogesport::color_text},${::frogesport::color_background}Hjälp: arme skapa <arménamn>|ansök <arménamn>|lämna|roll <nick> <medlem|admin> <ja|nej>|ändra namn <nytt namn>|status>"
 		# Get info about the current user and clan.
-		set curuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]'" -list]
+		set curuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name, clme_admin, clid, cid FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid LEFT JOIN classes ON user_class=cid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]'" -list]
 		putlog $curuser
-		switch -glob $action {
+		if {$curuser == ""} {
+			putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du måste svara rätt på en fråga innan du kan gå med i en armé."
+			return
+		}
+		switch -glob $arg0 {
 			"create" - 
 			"skapa" {
-				# TODO: Kolla att klanen inte redan finns!
 				if {[llength $arg] < 2} {
 					putserv "PRIVMSG $nick :$helpvar"
 					return
 				}
+				# Check the user's level.
+				if {[lindex $curuser 0 4] < 6 && [lindex $curuser 0 4] != 0} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du måste svara rätt på fler frågor innan du får skapa en ny armés."
+					return
+				}
 				# Check if the user already is a member of a clan.
 				if {[lindex $curuser 0 1] != ""} {
-					putserv "PRIVMSG $nick :Du får inte skapa en armé om du redan är medlem i en annan, lämna den du är med i först."
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du får inte skapa en armé om du redan är medlem i en annan, lämna den du är med i först."
 					return
 				}
 				# Check if the requested new clan exists.
-				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*) FROM clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $action2]'" -list]
+				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*) FROM clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $arg1end]'" -list]
 				if {[lindex $newclan 0 0] != 0} {
-					putserv "PRIVMSG $nick :Det finns redan en armé med namnet \"$action2\", var vänlig välj ett annat."
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Det finns redan en armé med namnet \003${::frogesport::color_class}$arg1end\003${::frogesport::color_text}, var vänlig välj ett annat."
 					return
 				}
 				# Create the clan and join the user.
-				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clans (clan_name, clan_created, clan_createdby) VALUES ('[::mysql::escape $::frogesport::mysql_conn $action2]', UNIX_TIMESTAMP(NOW()), '[lindex $curuser 0 0]')"
-				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid, clme_applied, clme_admin, clme_joined) VALUES ('[::mysql::insertid $::frogesport::mysql_conn]', '[lindex $curuser 0 0]', 'no', 'yes', UNIX_TIMESTAMP(NOW()))"
-				putserv "PRIVMSG $nick :$action2 skapad!"
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clans (clan_name, clan_created, clan_createdby) VALUES ('[::mysql::escape $::frogesport::mysql_conn $arg1end]', UNIX_TIMESTAMP(NOW()), '[lindex $curuser 0 0]')"
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid, clme_member, clme_admin, clme_joined) VALUES ('[::mysql::insertid $::frogesport::mysql_conn]', '[lindex $curuser 0 0]', 'yes', 'yes', UNIX_TIMESTAMP(NOW()))"
+				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Armén \003${::frogesport::color_class},${::frogesport::color_background}$arg1end\003${::frogesport::color_text} skapad!"
 			}
 			"join" -
 			"ans?k" {
@@ -1276,52 +1309,173 @@ namespace eval ::frogesport {
 					putserv "PRIVMSG $nick :$helpvar"
 					return
 				}
+				# Check the user's level.
+				if {[lindex $curuser 0 4] < 2 && [lindex $curuser 0 4] != 0} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du måste svara rätt på fler frågor innan du får gå med i en armé."
+					return
+				}
 				# Check if the user already is a member of a clan.
 				if {[lindex $curuser 0 1] != ""} {
-					putserv "PRIVMSG $nick :Du får inte gå med i fler armeer, lämna den du är med i först."
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du får inte gå med i fler armeer, lämna den du är med i först."
 					return
 				}
 				# Check if the requested new clan exists.
-				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*), clid FROM clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $action2]'" -list]
+				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*), clid FROM clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $arg1end]'" -list]
 				if {[lindex $newclan 0 0] == 0} {
-					putserv "PRIVMSG $nick :Det finns ingen armé med namnet \"$action2\", dubbelkolla stavningen eller skapa en ny med \"arme skapa $action2\""
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Det finns ingen armé med namnet \003${::frogesport::color_class}$arg1end\003${::frogesport::color_text},\003${::frogesport::color_background} dubbelkolla stavningen eller skapa en ny med \"arme skapa $arg1end\""
 					return
 				}
 				# Create the clan application!
-				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid) VALUES ('[lindex $newclan 0 1]', '[lindex $curuser 0 0]')"
-				putserv "PRIVMSG $nick :Ansökan till $action2 skickad."
+				::mysql::exec $::frogesport::mysql_conn "INSERT INTO clanmembers (clme_clid, clme_uid, clme_joined) VALUES ('[lindex $newclan 0 1]', '[lindex $curuser 0 0]', UNIX_TIMESTAMP(NOW()))"
+				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Ansökan till \003${::frogesport::color_class}$arg1end\003${::frogesport::color_text} skickad."
 			}
 			"leave" -
 			"l?mna" {
-				# är användaren i en klan?
-					# sql: delete from clans where clanname=$clan
-					# putserv "klan $clan lämnad"
-					# finns det ingen medlem kvar alls?
-						# sql: delete from clans where clanname=$clan
-						# return
-					# finns det ingen admin kvar?
-						# sql: update set admin where clanname=$clan order by clid asc limit 1 (sätter den äldsta medlemmen till admin)
-				# else
-					# putserv "du är inte med i någon klan"
+				# Is the user really in a clan?
+				if {[lindex $curuser 0 1] == ""} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte med i någon armé."
+					return
+				}
+				set newclan [::mysql::sel $::frogesport::mysql_conn "SELECT count(*), clan_name FROM clans WHERE clid='[lindex $curuser 0 3]'" -list]
+				::mysql::exec $::frogesport::mysql_conn "DELETE FROM clanmembers WHERE clme_uid='[lindex $curuser 0 0]'"
+				putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Armé \003${::frogesport::color_class}[lindex $newclan 0 1]\003${::frogesport::color_text} lämnad."
+				# Are there any users left in the clan? If not, delete the whole clan.
+				set memcount [::mysql::sel $::frogesport::mysql_conn "SELECT COUNT(*) from clanmembers WHERE clme_clid='[lindex $curuser 0 3]'" -flatlist]
+				if {$memcount == 0} {
+					::mysql::exec $::frogesport::mysql_conn "DELETE FROM clans WHERE clid='[lindex $curuser 0 3]'"
+				} else {
+					# If there are members but are no admins left, promote the oldest member.
+					set admincount [::mysql::sel $::frogesport::mysql_conn "SELECT COUNT(*) from clanmembers WHERE clme_clid='[lindex $curuser 0 3]' AND clme_admin='yes'" -flatlist]
+					if {$admincount == 0} {
+						::mysql::exec $::frogesport::mysql_conn "UPDATE clanmembers SET clme_admin='yes' WHERE clme_clid='[lindex $curuser 0 3]' ORDER BY FIELD(clme_member, 'yes', 'no'), clme_joined ASC LIMIT 1"
+					}
+				}
 			}
 			"role" -
 			"roll" {
-				# är användaren INTE i en klan?
-					# putserv "du är inte i någon klan"
+				set arg2 [lindex $arg 2]
+				set arg3 [lindex $arg 3]
+				if {$arg3 == ""} {
+					putserv "PRIVMSG $nick :$helpvar"
 					return
-				# är användaren INTE admin?
-					# putserv "du är inte admin i $clan"
+				}
+				# Is the user really in a clan?
+				if {[lindex $curuser 0 1] == ""} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte med i någon armé."
 					return
-				# hämta info om användaren $action2
-				# är $action2 INTE i samma klan som användaren?
-					# putserv "$action2 är inte med i din klan"
+				}
+				# Admin?
+				if {[lindex $curuser 0 2] != "yes"} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte admin i din armé."
 					return
-				#
+				}
+				# Get info about the affected user.
+				set roleuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name, clme_admin, user_nick FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $arg1]'" -list]
+				# Is there any matching user?
+				if {[lindex $roleuser 0 1] == ""} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_nick},${::frogesport::color_background}$arg1\003${::frogesport::color_text} är inte med i någon armé."
+					return
+				}
+				# Are the user and user in the same clan?
+				if {[lindex $roleuser 0 1] != [lindex $curuser 0 1]} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du och \003${::frogesport::color_nick}[lindex $roleuser 0 3]\003${::frogesport::color_text} är inte med i samma armé."
+					return
+				}
+				#clan role pelle admin yes/ja
+				switch -glob $arg2 {
+					"admin" {
+						if {[string match -nocase $arg3 "yes"] || [string match -nocase $arg3 "ja"]} {
+							::mysql::exec $::frogesport::mysql_conn "UPDATE clanmembers SET clme_admin='yes', clme_member='yes' WHERE clme_uid='[lindex $roleuser 0 0]'"
+							putserv "PRIVMSG $nick :\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $roleuser 0 3]\003${::frogesport::color_text} är nu admin."
+						} elseif {[string match -nocase $arg3 "no"] || [string match -nocase $arg3 "nej"]} {
+							::mysql::exec $::frogesport::mysql_conn "UPDATE clanmembers SET clme_admin='no' WHERE clme_uid='[lindex $roleuser 0 0]'"
+							putserv "PRIVMSG $nick :\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $roleuser 0 3]\003${::frogesport::color_text} är nu inte admin längre."
+						} else {
+							putserv "PRIVMSG $nick :$helpvar"
+						}
+					}
+					"medlem" -
+					"member" {
+						if {[string match -nocase $arg3 "yes"] || [string match -nocase $arg3 "ja"]} {
+							::mysql::exec $::frogesport::mysql_conn "UPDATE clanmembers SET clme_member='yes' WHERE clme_uid='[lindex $roleuser 0 0]'"
+							putserv "PRIVMSG $nick :\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $roleuser 0 3]\003${::frogesport::color_text} är nu medlem."
+						} elseif {[string match -nocase $arg3 "no"] || [string match -nocase $arg3 "nej"]} {
+							::mysql::exec $::frogesport::mysql_conn "DELETE from clanmembers WHERE clme_uid='[lindex $roleuser 0 0]'"
+							putserv "PRIVMSG $nick :\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $roleuser 0 3]\003${::frogesport::color_text} är nu inte medlem längre."
+						} else {
+							putserv "PRIVMSG $nick :$helpvar"
+						}
+					}
+					default {
+						putserv "PRIVMSG $nick :$helpvar"
+					}
+				}
 			}
-			"admin" -
-			"administrera" {
-				# stuff goes here
-				# byt namn, kolla att det inte finns en sån redan
+			"modify" -
+			"?ndra" {
+				# Change name
+				set arg2end [lrange $arg 2 end]
+				# Is the user really in a clan?
+				if {[lindex $curuser 0 1] == ""} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte med i någon armé."
+					return
+				}
+				# Admin?
+				if {[lindex $curuser 0 2] != "yes"} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte admin i din armé."
+					return
+				}
+				switch -glob $arg1 {
+					"name" -
+					"namn" {
+						if {$arg2end == "" } {
+							putserv "PRIVMSG $nick :$helpvar"
+							return
+						}
+						set dupcheck [::mysql::sel $::frogesport::mysql_conn "SELECT COUNT(*) from clans WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $arg2end]'" -flatlist]
+						if {$dupcheck != 0} {
+							putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Arménamnet är redan upptaget."
+							return
+						}
+						::mysql::exec $::frogesport::mysql_conn "UPDATE clans SET clan_name='[::mysql::escape $::frogesport::mysql_conn $arg2end]' WHERE clid=(SELECT clme_clid FROM clanmembers WHERE clme_uid=[lindex $curuser 0 0])"
+						putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Arménamn ändrat."
+					}
+				}
+			}
+			"medlemmar" -
+			"members" -
+			"status" {
+				# Is the user really in a clan?
+				if {[lindex $curuser 0 1] == ""} {
+					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte med i någon armé."
+					return
+				}
+				set query "SELECT
+					clan_name, user_nick, clme_admin, clme_member
+				FROM
+					clanmembers
+				LEFT JOIN
+					users ON clme_uid=uid
+				LEFT JOIN
+					clans ON clme_clid=clid
+				WHERE
+					clid=(SELECT clme_clid FROM clanmembers WHERE clme_uid='[lindex $curuser 0 0]')"
+				set clanmembers [::mysql::sel $::frogesport::mysql_conn $query -list]
+				set output "\003${::frogesport::color_text},${::frogesport::color_background}Medlemmar i armén [lindex $clanmembers 0 0]: "
+				foreach clanmember $clanmembers {
+					set output "$output\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $clanmember 1]\003${::frogesport::color_text} "
+					if {[lindex $clanmember 2] == "yes"} {
+						set output "$output\003${::frogesport::color_class}\[Admin\]\003${::frogesport::color_text},${::frogesport::color_background}"
+					}
+					if {[lindex $clanmember 3] == "no"} {
+						set output "$output\003${::frogesport::color_class}\[Ansökt\]\003${::frogesport::color_text},${::frogesport::color_background}"
+					}
+					set output "$output, "
+				}
+				putserv [string trimright "PRIVMSG $nick :$output" ", "]
+			}
+			default {
+				putserv "PRIVMSG $nick :$helpvar"
 			}
 		}
 	}
@@ -1481,7 +1635,7 @@ namespace eval ::frogesport {
 		foreach answer $answers {
 			# Check if the answer is prefered.
 			set prefer "0"
-			if {[scan [string index $answer 0] %c]== [scan "\u00A7" %c]} {
+			if {[scan [string index $answer 0] %c] == [scan "\u00A7" %c]} {
 				set answer [string range $answer 1 end]
 				set prefer "1"
 			}
@@ -1554,7 +1708,7 @@ namespace eval ::frogesport {
 				foreach answer $answers {
 					# Check if the answer is prefered.
 					set prefer "0"
-					if {[scan [string index $answer 0] %c]== [scan "\u00A7" %c]} {
+					if {[scan [string index $answer 0] %c] == [scan "\u00A7" %c]} {
 						set answer [string range $answer 1 end]
 						set prefer "1"
 					}
