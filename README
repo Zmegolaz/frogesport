@@ -33,6 +33,7 @@ Command - Description - Requirements
 !comparetot - Compare any number of users to eachother, ordered by total points - Anyone
 !continue - If the bot has been paused, start it again - Admin
 !hof - Hall of fame, the 10 users with the highest total points - Anyone
+!hofclan - Hall of fame, the 10 clans with the highest total points - Anyone
 !pause - Pause the bot, without clearing the questions IDs - Admin
 !punish - Take points from a user - Admin
 !queue [number] <string/id> - Add one or more question matching the search string to the queue of questions to ask next - Depends on configuration
@@ -47,6 +48,7 @@ Command - Description - Requirements
 !report <id> <comment> - Report a question - Anyone
 !time - Shows time left until the user can switch channel - Anyone
 !top10 - Top 10 users of this season - Anyone
+!top10clan - Top 10 clans of this season - Anyone
 !version - Show the bot version - Anyone
 
 [PM]checkq <id> [perm] - Check any question and it's answers - Admin
@@ -57,9 +59,10 @@ Command - Description - Requirements
 [PM]modq <id> [perm] <category|question|answer> <value> - Modify a part of a question - Admin
 [PM]modu <nick|season|total|time|inarow|mana|class|last|customclass|transfer|help> <nick|subcommand> [new value] - Modify any part of a user - Admin
 [PM]newseason [help] - Start a new season - Admin
+[PM]updateclasses - Correct all users' classes - Admin
 [PM]queue [number] <string/id> - Add one or more question matching the search string to the queue of questions to ask next - Depends on configuration
 [PM]recommend <category>|<question>|<answer>[|<answer>] - Recommend a question - Anyone
-[PM]updateclasses - Correct all users' classes - Admin
+[PM]clan create <clan name>|join <clan name>|leave|role <nick> <member|admin> <yes|no>|change name <new name>|members
 
 TODO, no internal order:
 Make sure all all MySQL indexes are as they should be.

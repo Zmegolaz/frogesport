@@ -1267,7 +1267,7 @@ namespace eval ::frogesport {
 		set arg0 [lindex $arg 0]
 		set arg1 [lindex $arg 1]
 		set arg1end [lrange $arg 1 end]
-		set helpvar "\003${::frogesport::color_text},${::frogesport::color_background}Hjälp: arme skapa <arménamn>|ansök <arménamn>|lämna|roll <nick> <medlem|admin> <ja|nej>|ändra namn <nytt namn>|status>"
+		set helpvar "\003${::frogesport::color_text},${::frogesport::color_background}Hjälp: arme skapa <arménamn>|ansök <arménamn>|lämna|roll <nick> <medlem|admin> <ja|nej>|ändra namn <nytt namn>|medlemmar"
 		# Get info about the current user and clan.
 		set curuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name, clme_admin, clid, cid FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid LEFT JOIN classes ON user_class=cid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]'" -list]
 		putlog $curuser
