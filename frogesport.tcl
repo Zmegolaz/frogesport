@@ -102,7 +102,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8 Beta1"
+	variable version "1.8 Beta3"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -112,11 +112,11 @@ namespace eval ::frogesport {
 		return
 	}
 
-	# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection, it sometimes disappears
+	# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection, if the database for some reason has gone.
 	proc checkdb { } {
 		if {[info exists ::frogesport::mysql_conn]} {
-			unset $::frogesport::mysql_conn
 			::mysql::close $::frogesport::mysql_conn
+			unset ::frogesport::mysql_conn
 		}
 		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "iso8859-1"]
 	}
@@ -1267,10 +1267,9 @@ namespace eval ::frogesport {
 		set arg0 [lindex $arg 0]
 		set arg1 [lindex $arg 1]
 		set arg1end [lrange $arg 1 end]
-		set helpvar "\003${::frogesport::color_text},${::frogesport::color_background}Hjälp: arme skapa <arménamn>|ansök <arménamn>|lämna|roll <nick> <medlem|admin> <ja|nej>|ändra namn <nytt namn>|medlemmar"
+		set helpvar "\003${::frogesport::color_text},${::frogesport::color_background}Hjälp: arme skapa <arménamn>|ansök <arménamn>|lämna|roll <nick> <medlem|admin> <ja|nej>|ändra namn <nytt namn>|medlemmar \[arménamn\]"
 		# Get info about the current user and clan.
 		set curuser [::mysql::sel $::frogesport::mysql_conn "SELECT uid, clan_name, clme_admin, clid, cid FROM users LEFT JOIN clanmembers ON users.uid=clanmembers.clme_uid LEFT JOIN clans ON clanmembers.clme_clid=clans.clid LEFT JOIN classes ON user_class=cid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]'" -list]
-		putlog $curuser
 		if {$curuser == ""} {
 			putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du måste svara rätt på en fråga innan du kan gå med i en armé."
 			return
@@ -1445,10 +1444,23 @@ namespace eval ::frogesport {
 			"medlemmar" -
 			"members" -
 			"status" {
-				# Is the user really in a clan?
-				if {[lindex $curuser 0 1] == ""} {
-					putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte med i någon armé."
-					return
+				set arg1end [lrange $arg 1 end]
+				# Do the user want to see a specific clan?
+				if {$arg1end == ""} {
+					putlog $arg1end
+					# Nope. Is the user in a clan?
+					if {[lindex $curuser 0 3] == ""} {
+						putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du är inte med i någon armé."
+						return
+					}
+					set currentclan [lindex $curuser 0 3]
+				} else {
+					set statusclan [::mysql::sel $::frogesport::mysql_conn "SELECT clid FROM clanmembers LEFT JOIN clans ON clanmembers.clme_clid=clans.clid WHERE clan_name='[::mysql::escape $::frogesport::mysql_conn $arg1end]'" -flatlist]
+					if {$statusclan == ""} {
+						putserv "PRIVMSG $nick :\003${::frogesport::color_text},${::frogesport::color_background}Armén $arg2end finns inte."
+						return
+					}
+					set currentclan [lindex $statusclan 0]
 				}
 				set query "SELECT
 					clan_name, user_nick, clme_admin, clme_member
@@ -1459,7 +1471,7 @@ namespace eval ::frogesport {
 				LEFT JOIN
 					clans ON clme_clid=clid
 				WHERE
-					clid=(SELECT clme_clid FROM clanmembers WHERE clme_uid='[lindex $curuser 0 0]')"
+					clid='$currentclan'"
 				set clanmembers [::mysql::sel $::frogesport::mysql_conn $query -list]
 				set output "\003${::frogesport::color_text},${::frogesport::color_background}Medlemmar i armén [lindex $clanmembers 0 0]: "
 				foreach clanmember $clanmembers {
@@ -1471,6 +1483,26 @@ namespace eval ::frogesport {
 						set output "$output\003${::frogesport::color_class}\[Ansökt\]\003${::frogesport::color_text},${::frogesport::color_background}"
 					}
 					set output "$output, "
+				}
+				putserv [string trimright "PRIVMSG $nick :$output" ", "]
+			}
+			"list" -
+			"lista" {
+				
+				set query "SELECT
+					clan_name, count(*)
+				FROM
+					clanmembers
+				LEFT JOIN
+					clans ON clme_clid=clid
+				WHERE
+					clme_member='yes'
+				GROUP BY
+					clan_name"
+				set clans [::mysql::sel $::frogesport::mysql_conn $query -list]
+				set output "\003${::frogesport::color_text},${::frogesport::color_background}Arméer: "
+				foreach clan $clans {
+					set output "$output\003${::frogesport::color_class},${::frogesport::color_background}[lindex $clan 0]\003${::frogesport::color_text},${::frogesport::color_background} (\003${::frogesport::color_statsnumber}[lindex $clan 1]\003${::frogesport::color_text} medlemmar), "
 				}
 				putserv [string trimright "PRIVMSG $nick :$output" ", "]
 			}
