@@ -115,7 +115,7 @@ namespace eval ::frogesport {
 	# Disconnect and reconnect to the database. A kind of cleanup/reset of the connection, it sometimes disappears
 	proc checkdb { } {
 		if {[info exists ::frogesport::mysql_conn]} {
-			# TODO: Add a try/catch here, the above if statement doesn't catch everything.
+			unset $::frogesport::mysql_conn
 			::mysql::close $::frogesport::mysql_conn
 		}
 		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "iso8859-1"]

@@ -7,6 +7,7 @@ Version 1.8 - 2014-11-20
 	Bug fixes
  * A lot of arguments failed if they had unmatched quotes or brackets in them.
  * Nicks with [] in them wasn't handled correctly in some cases
+ * Fixed a dangling pointer in rare cases when the database disappeared.
 Version 1.7 - 2014-06-03
 	Features
  * It is now possible to manually tell the bot to enqueue questions to ask next, by ID or by searching for a string.
