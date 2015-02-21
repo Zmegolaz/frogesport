@@ -74,14 +74,18 @@ bind pub * "!suggest" ::frogesport::recommendq
 bind pub * "!föreslå" ::frogesport::recommendq
 bind pub * "!förslag" ::frogesport::recommendq
 bind pub * "!hof" ::frogesport::hof
+bind pub * "!hofarmesnitt" ::frogesport::topclantotalaverage
 bind pub * "!hofarme" ::frogesport::topclantotal
 bind pub * "!hofclan" ::frogesport::topclantotal
+bind pub * "!hofclanavg" ::frogesport::topclantotalaverage
 bind pub * "!tid" ::frogesport::time
 bind pub * "!time" ::frogesport::time
 bind pub * "!top10" ::frogesport::top10
 bind pub * "!topfast" ::frogesport::topfast
 bind pub * "!top10arme" ::frogesport::topclanseason
+bind pub * "!top10armesnitt" ::frogesport::topclanseasonaverage
 bind pub * "!top10clan" ::frogesport::topclanseason
+bind pub * "!top10clanavg" ::frogesport::topclanseasonaverage
 bind pub * "!toptid" ::frogesport::topfast
 bind pub * "!topkpm" ::frogesport::topkpm
 bind pub * "!version" ::frogesport::version
@@ -102,7 +106,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8 Beta3"
+	variable version "1.8 Beta4"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -1142,6 +1146,12 @@ namespace eval ::frogesport {
 	proc topclanseason { nick host hand chan arg } {
 		top $nick "clanseason" 10
 	}
+	proc topclantotalaverage { nick host hand chan arg } {
+		top $nick "clantotalaverage" 10
+	}
+	proc topclanseasonaverage { nick host hand chan arg } {
+		top $nick "clanseasonaverage" 10
+	}
 	proc top { nick scope number } {
 		# Get the data and send a topic
 		switch $scope {
@@ -1168,6 +1178,14 @@ namespace eval ::frogesport {
 			"clanseason" {
 				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, SUM(user_points_season) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med flest säsongspoäng:"
+			}
+			"clanseasonaverage" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, ROUND(AVG(user_points_season), 0) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med högst snittpoäng totalt:"
+			}
+			"clantotalaverage" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, ROUND(AVG(user_points_season), 0) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med högst snittpoäng för säsongen:"
 			}
 		}
 		# Create the list with the top users

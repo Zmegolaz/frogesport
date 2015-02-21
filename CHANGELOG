@@ -1,7 +1,7 @@
 Version 1.8 - 2014-11-20
 	NOTE: This version uses a new database structure, make sure to update! An SQL file to use when updating is provided. Apply database updates before rehashing if update is done on a live bot.
 	Features
- * Users can now join clans and compete as a team. Channel commands !top10clan and !hofclan, as well as PM command "clan" has been added.
+ * Users can now join clans and compete as a team. Channel commands !top10clan, !top10clanavg, !hofclan and !hofclanavg, as well as PM command "clan" has been added.
 	Changes
  * The question ID is now underlined.
 	Bug fixes
