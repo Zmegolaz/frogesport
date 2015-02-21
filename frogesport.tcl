@@ -1179,11 +1179,11 @@ namespace eval ::frogesport {
 				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, SUM(user_points_season) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med flest säsongspoäng:"
 			}
-			"clanseasonaverage" {
-				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, ROUND(AVG(user_points_season), 0) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
+			"clantotalaverage" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, ROUND(AVG(user_points_total), 0) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med högst snittpoäng totalt:"
 			}
-			"clantotalaverage" {
+			"clanseasonaverage" {
 				set top [::mysql::sel $::frogesport::mysql_conn "SELECT clan_name, ROUND(AVG(user_points_season), 0) AS points FROM clanmembers LEFT JOIN users ON clme_uid=uid LEFT JOIN clans ON clme_clid=clid WHERE clme_member='yes' GROUP BY clan_name ORDER BY points DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Armeer med högst snittpoäng för säsongen:"
 			}
