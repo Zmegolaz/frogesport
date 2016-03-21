@@ -106,7 +106,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8"
+	variable version "1.8 Beta5"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -621,7 +621,7 @@ namespace eval ::frogesport {
 					set clanname "\[[lindex $curuser 12]\] "
 				}
 				# Tell everyone the time is up
-				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass $clanname\003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: ${answertime}s. KPM: ${answerkpm} I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
+				putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_text},${::frogesport::color_background}Vinnare: \003${::frogesport::color_nick}$nick\003${::frogesport::color_class}$curclass $clanname\003${::frogesport::color_text}Svar: \003${::frogesport::color_answer}$origarg \003${::frogesport::color_text}Tid: [string map {, . . ,} ${answertime}]s. KPM: [string map {, . . ,} ${answerkpm}] I rad: [lindex $::frogesport::currentcorrect 1]. Säsongspoäng: [expr [lindex $curuser 2]+1].$rankmess Total poäng: [expr [lindex $curuser 3]+1]."
 				if {[info exists updateclass] && $updateclass != ""} {
 					putnow "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick\003${::frogesport::color_text} har gått upp till level [lindex $newclass 0] och är nu rankad som [lindex $newclass 2]! [lindex $newclass 4]"
 				}
@@ -655,7 +655,7 @@ namespace eval ::frogesport {
 		if {[info exists ::frogesport::correct_close_nick]} {
 			set num_nicks [llength $::frogesport::correct_close_nick]
 			for {set i 0} {$i<$num_nicks} {incr i} {
-				lappend output "\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $::frogesport::correct_close_nick $i] \003${::frogesport::color_text}var \003${::frogesport::color_statsnumber}[lindex $::frogesport::correct_close_time $i]\003${::frogesport::color_text} sekunder efter"
+				lappend output "\003${::frogesport::color_nick},${::frogesport::color_background}[lindex $::frogesport::correct_close_nick $i] \003${::frogesport::color_text}var \003${::frogesport::color_statsnumber}[string map {, . . ,} [lindex $::frogesport::correct_close_time $i]]\003${::frogesport::color_text} sekunder efter"
 			}
 			putserv "PRIVMSG $::frogesport::running_chan :[join $output ", "]."
 			unset $::frogesport::correct_close_nick
@@ -772,9 +772,9 @@ namespace eval ::frogesport {
 			set lastpoint "Senaste poäng: \003${::frogesport::color_statsnumber}[clock format [lindex $curuser 8] -format "%Y-%m-%d %H:%M:%S"]\003${::frogesport::color_text}. "
 		}
 		putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Statistik för \003${::frogesport::color_nick}[lindex $curuser 1]\003${::frogesport::color_text}:\
-			Snabbaste tid: \003${::frogesport::color_statsnumber}[lindex $curuser 4]\003${::frogesport::color_text} sekunder.\
+			Snabbaste tid: \003${::frogesport::color_statsnumber}[string map {, . . ,} [lindex $curuser 4]]\003${::frogesport::color_text} sekunder.\
 			Bästa streak: \003${::frogesport::color_statsnumber}[lindex $curuser 5]\003${::frogesport::color_text}.\
-			Högsta KPM: \003${::frogesport::color_statsnumber}[lindex $curuser 10]\003${::frogesport::color_text}.\
+			Högsta KPM: \003${::frogesport::color_statsnumber}[string map {, . . ,} [lindex $curuser 10]]\003${::frogesport::color_text}.\
 			Säsongspoäng: \003${::frogesport::color_statsnumber}[lindex $curuser 2]\003${::frogesport::color_text}.\
 			Total poäng: \003${::frogesport::color_statsnumber}[lindex $curuser 3]\003${::frogesport::color_text}.\
 			Klass: \003${::frogesport::color_class}$curclass\003${::frogesport::color_text}.\
