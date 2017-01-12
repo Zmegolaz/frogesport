@@ -526,7 +526,7 @@ namespace eval ::frogesport {
 			} else {
 				# Check if the user answered a question in another channel a short while ago
 				# Get new user information
-				set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_lastactive_chan, user_kpm_max, clan_name FROM users LEFT JOIN clanmembers ON uid=clme_uid LEFT JOIN clans ON clme_clid=clid WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
+				set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass, user_lastactive_chan, user_kpm_max, clan_name FROM users LEFT JOIN clanmembers ON uid=clme_uid LEFT JOIN clans ON clme_clid=clid AND clme_member='yes' WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
 				if {[lindex $curuser 10] != $::frogesport::running_chan && [expr [lindex $curuser 8]+$::frogesport::s_channel_switch_time] > [clock seconds]} {
 					putserv "PRIVMSG $::frogesport::running_chan :\003${::frogesport::color_nick},${::frogesport::color_background}$nick \003${::frogesport::color_text}hade rätt, men måste vänta [expr [lindex $curuser 8]+$::frogesport::s_channel_switch_time-[clock seconds]] sekunder till för att kunna svara i den här kanalen."
 					return
