@@ -106,7 +106,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8"
+	variable version "1.8 Beta6"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -259,7 +259,7 @@ namespace eval ::frogesport {
 		# Create or empty the previous winner variable
 		variable currentcorrect ""
 		# Clear all the temporary IDs in the database for this bot ID
-		::mysql::exec $::frogesport::mysql_conn "UPDATE questions SET ques_tempid=NULL WHERE ques_tempid LIKE '%[::mysql::escape $::frogesport::mysql_conn $::frogesport::bot_id]'"
+		::mysql::exec $::frogesport::mysql_conn "UPDATE questions SET ques_tempid='0.0' WHERE ques_tempid LIKE '%[::mysql::escape $::frogesport::mysql_conn $::frogesport::bot_id]'"
 		# Binding for detecting answers (matches everything)
 		bind pubm * {*} ::frogesport::checkanswer
 		# Ask the first question
