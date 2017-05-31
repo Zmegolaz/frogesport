@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS `reports` (
   `repo_qid` int(16) NOT NULL,
   `repo_comment` varchar(512) COLLATE utf8_unicode_ci NOT NULL,
   `repo_user` varchar(128) COLLATE utf8_unicode_ci NOT NULL,
-  `repo_lastshow` int(11) NOT NULL,
+  `repo_lastshow` int(11) DEFAULT NULL,
   PRIMARY KEY (`rid`),
   KEY `repo_lastshow` (`repo_lastshow`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci AUTO_INCREMENT=1 ;
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `user_mana` int(16) NOT NULL,
   `user_class` int(16) NOT NULL,
   `user_lastactive` int(16) NOT NULL,
-  `user_customclass` varchar(256) COLLATE utf8_unicode_ci NOT NULL,
+  `user_customclass` varchar(256) COLLATE utf8_unicode_ci DEFAULT NULL,
   `user_lastactive_chan` varchar(200) COLLATE utf8_unicode_ci NOT NULL,
   `user_kpm_max` double NOT NULL,
   PRIMARY KEY (`uid`),
