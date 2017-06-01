@@ -106,7 +106,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.8 Beta6"
+	variable version "1.9 Beta1"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -806,7 +806,7 @@ namespace eval ::frogesport {
 			!spell steal <\003${::frogesport::color_nick}användare\003${::frogesport::color_text}> (stjäl $::frogesport::steal_points poäng, kostar $::frogesport::cost_steal mana),\
 			!spell give <\003${::frogesport::color_nick}nick\003${::frogesport::color_text}> (ge $::frogesport::give_points points, kostar $::frogesport::cost_give mana),\
 			!spell prevanswer <id> (få svaret på en tidigare fråga, kostar $::frogesport::cost_prevanswer mana),\
-			!spell setvoice (ger dig voice (+v), kostar $::frogesport::cost_setvoice mana)"
+			!spell setvoice \[\003${::frogesport::color_nick}användare\003${::frogesport::color_text}\] (ger dig eller en annan användare voice (+v), kostar $::frogesport::cost_setvoice mana)"
 		set lowmana "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du har inte tillräckligt med mana!"
 		# Get the user, if any
 		set user [lindex [split $arg] 1]
@@ -942,9 +942,12 @@ namespace eval ::frogesport {
 			}
 			"voice" -
 			"setvoice" {
+				if {$user == ""} {
+					set user $nick
+				}
 				# Check if the user already is voiced
-				if {[isvoice $nick $::frogesport::running_chan]} {
-					putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}Du har redan voice (+v)"
+				if {[isvoice $user $::frogesport::running_chan]} {
+					putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}$user har redan voice (+v)"
 				} else {
 					# Get info about the current user
 					set curuser [lindex [::mysql::sel $::frogesport::mysql_conn "SELECT uid, user_nick, user_points_season, user_points_total, user_time, user_inarow, user_mana, user_class, user_lastactive, user_customclass FROM users WHERE user_nick='[::mysql::escape $::frogesport::mysql_conn $nick]' LIMIT 1" -list] 0]
@@ -954,7 +957,7 @@ namespace eval ::frogesport {
 					} else {
 						::mysql::exec $::frogesport::mysql_conn "UPDATE users SET user_mana=user_mana-$::frogesport::cost_setvoice WHERE uid='[lindex $curuser 0]' LIMIT 1"
 						# Give the user voice
-						putserv "MODE $::frogesport::running_chan +v $nick"
+						putserv "MODE $::frogesport::running_chan +v $user"
 					}
 				}
 			}
