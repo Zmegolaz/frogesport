@@ -1235,19 +1235,22 @@ namespace eval ::frogesport {
 		if {$total} {
 			set column "total"
 		}
+		# Remove duplicates
+		set arg [lsort -unique $arg]
 		# Set the nicks and count them
-		switch [set numnicks [llength [set nicks $arg]]] {
-			"0" {
-				# If there's no argument, tell the user how to use this command
-				putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}!jämför <nick> \[nick\]... - Jämför poäng mellan två eller fler användare. Anges bara ett nick jämförs den personens poäng med din."
-				return
-			}
-			"1" {
-				# If there's just one nick, add our own to the list
-				lappend nicks $nick
-				incr numnicks
-			}
+		if {[string match -nocase $arg $nick] || [llength [set nicks $arg]] == "0"} {
+			# If there's no argument, tell the user how to use this command
+			putserv "NOTICE $nick :\003${::frogesport::color_text},${::frogesport::color_background}!jämför <nick> \[nick\]... - Jämför poäng mellan två eller fler användare. Anges bara ett nick jämförs den personens poäng med din."
+			return
 		}
+		if {[llength [set nicks $arg]] == "1"} {
+			# If there's just one nick, add our own to the list
+			lappend nicks $nick
+		}
+		# Remove duplicates again
+		set nicks [lsort -unique $nicks]
+		set numnicks [llength $nicks]
+		
 		# Create the query list of nicks
 		set allnicks "user_nick='[join [::mysql::escape $::frogesport::mysql_conn $nicks] "' OR user_nick='"]'"
 		set numrows [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick, user_points_$column FROM users WHERE $allnicks ORDER BY user_points_$column DESC"]
