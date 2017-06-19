@@ -106,7 +106,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.9 Beta1"
+	variable version "1.10"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
