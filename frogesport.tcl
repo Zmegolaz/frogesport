@@ -122,7 +122,7 @@ namespace eval ::frogesport {
 			::mysql::close $::frogesport::mysql_conn
 			unset ::frogesport::mysql_conn
 		}
-		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "iso8859-1"]
+		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "utf-8"]
 	}
 	checkdb
 
