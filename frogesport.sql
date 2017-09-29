@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS `questions` (
   `qid` int(16) NOT NULL AUTO_INCREMENT,
   `ques_category` varchar(256) COLLATE utf8_unicode_ci NOT NULL,
   `ques_question` varchar(512) COLLATE utf8_unicode_ci NOT NULL,
-  `ques_tempid` decimal(16,5) NOT NULL,
+  `ques_tempid` decimal(16,5) NULL,
   `ques_source` varchar(512) COLLATE utf8_unicode_ci NOT NULL,
   `ques_addedby` varchar(128) COLLATE utf8_unicode_ci NOT NULL,
   PRIMARY KEY (`qid`),
