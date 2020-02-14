@@ -106,7 +106,7 @@ bind msg * "rensakö" ::frogesport::msgclearqueue
 package require mysqltcl
 
 namespace eval ::frogesport {
-	variable version "1.11"
+	variable version "1.10"
 	
 	# Include the config file
 	if {[file exists scripts/frogesport/frogesport-config.tcl]} {
@@ -122,7 +122,7 @@ namespace eval ::frogesport {
 			::mysql::close $::frogesport::mysql_conn
 			unset ::frogesport::mysql_conn
 		}
-		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass -encoding "utf-8"]
+		variable mysql_conn [::mysql::connect -db $::frogesport::mysql_dbname -host $::frogesport::mysql_host -user $::frogesport::mysql_user -password $::frogesport::mysql_pass]
 	}
 	checkdb
 
