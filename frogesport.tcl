@@ -88,6 +88,7 @@ bind pub * "!top10clan" ::frogesport::topclanseason
 bind pub * "!top10clanavg" ::frogesport::topclanseasonaverage
 bind pub * "!toptid" ::frogesport::topfast
 bind pub * "!topkpm" ::frogesport::topkpm
+bind pub * "!topstreak" ::frogesport::topstreak
 bind pub * "!version" ::frogesport::version
 # User commands from PM
 bind msg * "arme" ::frogesport::msgclan
@@ -1140,6 +1141,9 @@ namespace eval ::frogesport {
 	proc topkpm { nick host hand chan arg } {
 		top $nick "kpm" 10
 	}
+	proc topstreak { nick host hand chan arg } {
+		top $nick "streak" 10
+	}
 	proc topfast { nick host hand chan arg } {
 		top $nick "fast" 10
 	}
@@ -1169,6 +1173,10 @@ namespace eval ::frogesport {
 			"kpm" {
 				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_kpm_max FROM users ORDER BY user_kpm_max DESC LIMIT $number" -list]
 				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Högst antal knappar per minut:"
+			}
+			"streak" {
+				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_inarow FROM users ORDER BY user_inarow DESC LIMIT $number" -list]
+				set topout "\003${::frogesport::color_text},${::frogesport::color_background}Högst antal rätta svar i rad:"
 			}
 			"fast" {
 				set top [::mysql::sel $::frogesport::mysql_conn "SELECT user_nick,user_time FROM users ORDER BY user_time ASC LIMIT $number" -list]
@@ -1223,7 +1231,7 @@ namespace eval ::frogesport {
 			!time,\
 			!recommend,\
 			!report <id> <kommentar>,\
-			!hof,, !hofarme, !top10, !top10arme, !toptid, !topkpm$opcommands,\
+			!hof,, !hofarme, !top10, !top10arme, !toptid, !topstreak, !topkpm$opcommands,\
 			!compare <nick> \[nick\]...,\
 			!comparetot <nick> \[nick\]..."
 	}
